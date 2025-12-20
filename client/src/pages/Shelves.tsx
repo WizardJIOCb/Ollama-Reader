@@ -318,19 +318,21 @@ export default function Shelves() {
                       readingProgress={readingProgress}
                       addToShelfButton={
                         <AddToShelfDialog 
-                          bookId={parseInt(book.id)}
+                          bookId={book.id}
                           shelves={shelves.map(s => ({
                             id: s.id,
-                            title: s.name,
+                            name: s.name,
                             description: s.description,
-                            bookIds: (s.bookIds || []).map(id => parseInt(id)),
+                            bookIds: s.bookIds || [],
                             color: s.color
                           }))}
                           onToggleShelf={handleToggleShelf}
                           trigger={
-                            <Button variant="outline" size="sm" className="gap-2 w-full">
-                              <Plus className="w-4 h-4" />
-                              Добавить на полку
+                            <Button variant="outline" size="sm" className="gap-2 w-full truncate">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                              </svg>
+                              <span className="truncate">Полки</span>
                             </Button>
                           }
                         />
@@ -397,14 +399,18 @@ export default function Shelves() {
                       title: book.title,
                       author: book.author,
                       description: book.description,
-                      coverImageUrl: book.coverImageUrl, // Pass the cover image URL
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl, // Pass the cover image URL
                       rating: book.rating,
+                      commentCount: book.commentCount,
+                      reviewCount: book.reviewCount,
                       genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
                       year: book.publishedYear,
+                      uploadedAt: book.uploadedAt, // Add upload date
+                      publishedAt: book.publishedAt, // Add publication date
                     };
                     
                     // Find reading progress for this book
-                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
                     
                     return (
                       <BookCard 
@@ -417,16 +423,18 @@ export default function Shelves() {
                             bookId={book.id} // Pass the original ID
                             shelves={shelves.map(s => ({
                               id: s.id,
-                              title: s.name,
+                              name: s.name,
                               description: s.description,
                               bookIds: s.bookIds || [],
                               color: s.color
                             }))}
-                            onToggleShelf={(bookId, shelfId, isAdded) => handleToggleShelf(parseInt(bookId), shelfId, isAdded)}
+                            onToggleShelf={(bookId, shelfId, isAdded) => handleToggleShelf(bookId, shelfId, isAdded)}
                             trigger={
-                              <Button variant="outline" size="sm" className="gap-2 w-full">
-                                <Plus className="w-4 h-4" />
-                                Добавить на полку
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                </svg>
+                                <span className="truncate">Полки</span>
                               </Button>
                             }
                           />

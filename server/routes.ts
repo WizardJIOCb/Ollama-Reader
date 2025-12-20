@@ -87,24 +87,33 @@ const authenticateToken = async (req: Request, res: Response, next: Function) =>
     return res.status(401).json({ error: "Access token required" });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || "default_secret", async (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: "Invalid token" });
-    }
+  // Promisify jwt.verify
+  const verifyToken = (token: string, secret: string) => {
+    return new Promise((resolve, reject) => {
+      jwt.verify(token, secret, (err, decoded) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(decoded);
+        }
+      });
+    });
+  };
+
+  try {
+    const decoded = await verifyToken(token, process.env.JWT_SECRET || "default_secret") as any;
     
     // Verify that the user actually exists in the database
-    try {
-      const userData = await storage.getUser((user as any).userId);
-      if (!userData) {
-        return res.status(401).json({ error: "User not found. Please log in again." });
-      }
-      (req as any).user = user;
-      next();
-    } catch (dbError) {
-      console.error("Database error during authentication:", dbError);
-      return res.status(500).json({ error: "Authentication failed" });
+    const userData = await storage.getUser(decoded.userId);
+    if (!userData) {
+      return res.status(401).json({ error: "User not found. Please log in again." });
     }
-  });
+    (req as any).user = decoded;
+    next();
+  } catch (err) {
+    console.error("Token verification error:", err);
+    return res.status(403).json({ error: "Invalid token" });
+  }
 };
 
 export async function registerRoutes(
@@ -165,27 +174,41 @@ export async function registerRoutes(
     console.log("Login endpoint called");
     try {
       const { username, password } = req.body;
+      console.log("Login attempt for username:", username);
+      
       if (!username || !password) {
+        console.log("Missing username or password");
         return res.status(400).json({ error: "Username and password are required" });
       }
       
       // Find user
+      console.log("Searching for user by username:", username);
       const user = await storage.getUserByUsername(username);
+      console.log("User lookup result:", user ? "found" : "not found");
+      
       if (!user) {
+        console.log("User not found, returning invalid credentials");
         return res.status(400).json({ error: "Invalid credentials" });
       }
       
       // Check password
+      console.log("Checking password for user:", username);
       const validPassword = await bcrypt.compare(password, user.password);
+      console.log("Password validation result:", validPassword);
+      
       if (!validPassword) {
+        console.log("Invalid password, returning invalid credentials");
         return res.status(400).json({ error: "Invalid credentials" });
       }
       
       // Generate token
+      console.log("Generating token for user ID:", user.id);
       const token = generateToken(user.id);
+      console.log("Token generated successfully");
       
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
+      console.log("Sending login response");
       res.json({ user: userWithoutPassword, token });
     } catch (error) {
       console.error("Login error:", error);
@@ -284,7 +307,7 @@ export async function registerRoutes(
       const userId = (req as any).user.userId;
       
       // Extract book metadata from form data
-      const { title, author, description, genre, year } = req.body;
+      const { title, author, description, genre, year, publishedAt } = req.body;
       
       if (!title || !author) {
         return res.status(400).json({ error: "Title and author are required" });
@@ -297,7 +320,9 @@ export async function registerRoutes(
         description: description || '',
         genre: genre || '',
         publishedYear: year ? parseInt(year) : null,
-        userId // Add userId to track who uploaded the book
+        userId, // Add userId to track who uploaded the book
+        uploadedAt: new Date(), // Set upload time to current time
+        publishedAt: publishedAt ? new Date(publishedAt) : (year ? new Date(`${year}-01-01`) : null) // Set publication date
       };
       
       // If book file was uploaded, add file information
@@ -402,7 +427,24 @@ export async function registerRoutes(
     try {
       const { id: shelfId, bookId } = req.params;
       
-      // In a real implementation, you'd verify the shelf belongs to the user
+      // Verify that the shelf exists
+      const shelf = await storage.getShelf(shelfId);
+      if (!shelf) {
+        return res.status(404).json({ error: "Shelf not found" });
+      }
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Verify the shelf belongs to the user
+      const userId = (req as any).user.userId;
+      if (shelf.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       await storage.addBookToShelf(shelfId, bookId);
       res.status(204).send();
     } catch (error) {
@@ -417,7 +459,24 @@ export async function registerRoutes(
     try {
       const { id: shelfId, bookId } = req.params;
       
-      // In a real implementation, you'd verify the shelf belongs to the user
+      // Verify that the shelf exists
+      const shelf = await storage.getShelf(shelfId);
+      if (!shelf) {
+        return res.status(404).json({ error: "Shelf not found" });
+      }
+      
+      // Verify that the book exists
+      const book = await storage.getBook(bookId);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Verify the shelf belongs to the user
+      const userId = (req as any).user.userId;
+      if (shelf.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       await storage.removeBookFromShelf(shelfId, bookId);
       res.status(204).send();
     } catch (error) {
@@ -451,6 +510,325 @@ export async function registerRoutes(
         return res.status(403).json({ error: error.message });
       }
       res.status(500).json({ error: "Failed to delete book" });
+    }
+  });
+  
+  // Comments endpoints
+  // Create a comment
+  app.post("/api/books/:bookId/comments", authenticateToken, async (req, res) => {
+    console.log("Create comment endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { bookId } = req.params;
+      const { content } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      const comment = await storage.createComment({
+        userId,
+        bookId,
+        content
+      });
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Create comment error:", error);
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+  
+  // Get comments for a book
+  app.get("/api/books/:bookId/comments", authenticateToken, async (req, res) => {
+    console.log("Get comments endpoint called");
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      let comments = await storage.getComments(bookId);
+      
+      // Get comment IDs
+      const commentIds = comments.map(comment => comment.id);
+      
+      if (commentIds.length > 0) {
+        // Get reactions for all comments
+        const reactions = await storage.getReactionsForItems(commentIds, true);
+        
+        // Group and aggregate reactions by commentId and emoji
+        const reactionsMap: Record<string, any[]> = {};
+        
+        // Group reactions by commentId and emoji
+        const groupedReactions: Record<string, any[]> = {};
+        reactions.forEach(reaction => {
+          const key = `${reaction.commentId}::${reaction.emoji}`;
+          if (!groupedReactions[key]) {
+            groupedReactions[key] = [];
+          }
+          groupedReactions[key].push(reaction);
+        });
+        
+        // Aggregate reactions
+        Object.entries(groupedReactions).forEach(([key, reactionList]) => {
+          const parts = key.split('::');
+          const commentId = parts[0];
+          const emoji = parts[1];
+          if (!reactionsMap[commentId]) {
+            reactionsMap[commentId] = [];
+          }
+          
+          // Check if current user reacted with this emoji
+          const userReacted = reactionList.some(reaction => reaction.userId === userId);
+          
+          reactionsMap[commentId].push({
+            emoji,
+            count: reactionList.length,
+            userReacted
+          });
+        });
+        
+        // Add reactions to comments
+        comments = comments.map(comment => ({
+          ...comment,
+          reactions: reactionsMap[comment.id] || []
+        }));
+      }
+      
+      res.json(comments);
+    } catch (error) {
+      console.error("Get comments error:", error);
+      res.status(500).json({ error: "Failed to get comments" });
+    }
+  });
+  
+  // Delete a comment
+  app.delete("/api/comments/:id", authenticateToken, async (req, res) => {
+    console.log("Delete comment endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { id } = req.params;
+      
+      const success = await storage.deleteComment(id, userId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Comment not found or unauthorized" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete comment error:", error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+  
+  // Reviews endpoints
+  // Create a review
+  app.post("/api/books/:bookId/reviews", authenticateToken, async (req, res) => {
+    console.log("Create review endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { bookId } = req.params;
+      const { rating, content } = req.body;
+      
+      if (rating === undefined || rating === null || content === undefined || content === null || content.trim() === '') {
+        return res.status(400).json({ error: "Rating and content are required" });
+      }
+      
+      // Validate rating is between 1 and 10
+      if (typeof rating !== 'number' || rating < 1 || rating > 10) {
+        return res.status(400).json({ error: "Rating must be a number between 1 and 10" });
+      }
+      
+      // Check if user already reviewed this book
+      const existingReview = await storage.getUserReview(userId, bookId);
+      if (existingReview) {
+        return res.status(400).json({ error: "You have already reviewed this book" });
+      }
+      
+      const review = await storage.createReview({
+        userId,
+        bookId,
+        rating,
+        content
+      });
+      
+      res.status(201).json(review);
+    } catch (error) {
+      console.error("Create review error:", error);
+      res.status(500).json({ error: "Failed to create review" });
+    }
+  });
+  
+  // Get user's review for a book
+  app.get("/api/books/:bookId/my-review", authenticateToken, async (req, res) => {
+    console.log("Get user's review endpoint called");
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      
+      const review = await storage.getUserReview(userId, bookId);
+      
+      if (review) {
+        // Get reactions for this review
+        const reactions = await storage.getReactions(review.id, false);
+        
+        // Group and aggregate reactions by emoji
+        const reactionsMap: Record<string, any[]> = {};
+        
+        // Group reactions by emoji
+        const groupedReactions: Record<string, any[]> = {};
+        reactions.forEach(reaction => {
+          const key = reaction.emoji;
+          if (!groupedReactions[key]) {
+            groupedReactions[key] = [];
+          }
+          groupedReactions[key].push(reaction);
+        });
+        
+        // Aggregate reactions
+        const aggregatedReactions: any[] = [];
+        Object.entries(groupedReactions).forEach(([emoji, reactionList]) => {
+          // Check if current user reacted with this emoji
+          const userReacted = reactionList.some(reaction => reaction.userId === userId);
+          
+          aggregatedReactions.push({
+            emoji,
+            count: reactionList.length,
+            userReacted
+          });
+        });
+        
+        // Add reactions to review
+        const reviewWithReactions = {
+          ...review,
+          reactions: aggregatedReactions
+        };
+        
+        res.json(reviewWithReactions);
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Get user's review error:", error);
+      res.status(500).json({ error: "Failed to get user's review" });
+    }
+  });
+  
+  // Get reviews for a book
+  app.get("/api/books/:bookId/reviews", authenticateToken, async (req, res) => {
+    console.log("Get reviews endpoint called");
+    try {
+      const { bookId } = req.params;
+      const userId = (req as any).user.userId;
+      let reviews = await storage.getReviews(bookId);
+      
+      // Get review IDs
+      const reviewIds = reviews.map(review => review.id);
+      
+      if (reviewIds.length > 0) {
+        // Get reactions for all reviews
+        const reactions = await storage.getReactionsForItems(reviewIds, false);
+        
+        // Group and aggregate reactions by reviewId and emoji
+        const reactionsMap: Record<string, any[]> = {};
+        
+        // Group reactions by reviewId and emoji
+        const groupedReactions: Record<string, any[]> = {};
+        reactions.forEach(reaction => {
+          const key = `${reaction.reviewId}::${reaction.emoji}`;
+          if (!groupedReactions[key]) {
+            groupedReactions[key] = [];
+          }
+          groupedReactions[key].push(reaction);
+        });
+        
+        // Aggregate reactions
+        Object.entries(groupedReactions).forEach(([key, reactionList]) => {
+          const parts = key.split('::');
+          const reviewId = parts[0];
+          const emoji = parts[1];
+          if (!reactionsMap[reviewId]) {
+            reactionsMap[reviewId] = [];
+          }
+          
+          // Check if current user reacted with this emoji
+          const userReacted = reactionList.some(reaction => reaction.userId === userId);
+          
+          reactionsMap[reviewId].push({
+            emoji,
+            count: reactionList.length,
+            userReacted
+          });
+        });
+        
+        // Add reactions to reviews
+        reviews = reviews.map(review => ({
+          ...review,
+          reactions: reactionsMap[review.id] || []
+        }));
+      }
+      
+      res.json(reviews);
+    } catch (error) {
+      console.error("Get reviews error:", error);
+      res.status(500).json({ error: "Failed to get reviews" });
+    }
+  });
+  
+  // Delete a review
+  app.delete("/api/reviews/:id", authenticateToken, async (req, res) => {
+    console.log("Delete review endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { id } = req.params;
+      
+      const success = await storage.deleteReview(id, userId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Review not found or unauthorized" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete review error:", error);
+      res.status(500).json({ error: "Failed to delete review" });
+    }
+  });
+  
+  // Reactions endpoints
+  // Create/toggle a reaction
+  app.post("/api/reactions", authenticateToken, async (req, res) => {
+    console.log("Create reaction endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const { commentId, reviewId, emoji } = req.body;
+      
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      if (!commentId && !reviewId) {
+        return res.status(400).json({ error: "Either commentId or reviewId is required" });
+      }
+      
+      if (commentId && reviewId) {
+        return res.status(400).json({ error: "Only one of commentId or reviewId should be provided" });
+      }
+      
+      if (commentId === '' || reviewId === '') {
+        return res.status(400).json({ error: "commentId or reviewId cannot be empty" });
+      }
+      
+      const reaction = await storage.createReaction({
+        userId,
+        commentId,
+        reviewId,
+        emoji
+      });
+      
+      res.json(reaction);
+    } catch (error) {
+      console.error("Create reaction error:", error);
+      res.status(500).json({ error: "Failed to create reaction" });
     }
   });
   

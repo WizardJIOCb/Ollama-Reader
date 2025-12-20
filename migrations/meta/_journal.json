@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1766239820187,
+      "tag": "0000_green_impossible_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766239820188,
+      "tag": "0001_add_book_dates",
+      "breakpoints": true
+    }
+  ]
+}

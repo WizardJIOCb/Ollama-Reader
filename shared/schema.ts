@@ -40,6 +40,8 @@ export const books = pgTable("books", {
   publishedYear: integer("published_year"),
   rating: numeric("rating", { precision: 2, scale: 1 }),
   userId: varchar("user_id").notNull().references(() => users.id), // Added userId field to track uploader
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(), // When the book was uploaded to our system
+  publishedAt: timestamp("published_at"), // Publication date of the book
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -105,5 +107,37 @@ export const bookmarks = pgTable("bookmarks", {
   title: text("title").notNull(),
   content: text("content"),
   position: integer("position"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Table for book comments
+export const comments = pgTable("comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  bookId: varchar("book_id").notNull().references(() => books.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for book reviews
+export const reviews = pgTable("reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  bookId: varchar("book_id").notNull().references(() => books.id),
+  rating: integer("rating").notNull(), // Rating from 1-10
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for reactions (likes, etc.) on comments and reviews
+export const reactions = pgTable("reactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  // Either commentId or reviewId should be set, but not both
+  commentId: varchar("comment_id").references(() => comments.id),
+  reviewId: varchar("review_id").references(() => reviews.id),
+  emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

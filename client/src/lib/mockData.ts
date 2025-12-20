@@ -20,6 +20,10 @@ export interface Book {
   style?: string;
   tags?: string[];
   year?: number;
+  // Date fields for book display
+  uploadedAt?: string; // ISO date string
+  publishedAt?: string; // ISO date string
+  createdAt?: string;   // ISO date string (fallback)
 }
 
 export interface Bookmark {
@@ -61,6 +65,7 @@ export interface Review {
   content: string;
   createdAt: string; // ISO date string
   reactions: Reaction[];
+  userId?: string; // Add userId to determine ownership
 }
 
 export interface UserStats {
@@ -76,6 +81,8 @@ export interface ReadingProgress {
   wordsRead: number;
   lettersRead: number;
   lastReadAt: Date;
+  currentPage: number;
+  totalPages: number;
 }
 
 export interface User {
@@ -102,6 +109,8 @@ export const mockBook: Book = {
   style: "Философский",
   tags: ["ИИ", "Будущее", "Сознание"],
   year: 2024,
+  uploadedAt: "2024-03-10T10:00:00Z",
+  publishedAt: "2024-02-15T00:00:00Z",
   chapters: [
     {
       id: 1,
@@ -190,6 +199,8 @@ export const mockBooks: Book[] = [
     style: "Нуар",
     tags: ["Бессмертие", "Расследование"],
     year: 2023,
+    uploadedAt: "2024-03-05T14:30:00Z",
+    publishedAt: "2023-11-20T00:00:00Z",
     chapters: []
   },
   {
@@ -204,6 +215,8 @@ export const mockBooks: Book[] = [
     style: "Эпический",
     tags: ["Космос", "Выживание", "Драма"],
     year: 2022,
+    uploadedAt: "2024-02-28T09:15:00Z",
+    publishedAt: "2022-08-10T00:00:00Z",
     chapters: []
   },
   {
@@ -218,6 +231,8 @@ export const mockBooks: Book[] = [
     style: "Техногенный",
     tags: ["Хакеры", "ИИ", "Глобальная сеть"],
     year: 2025,
+    uploadedAt: "2024-03-12T16:45:00Z",
+    publishedAt: "2025-01-30T00:00:00Z",
     chapters: []
   },
   {
@@ -232,6 +247,8 @@ export const mockBooks: Book[] = [
     style: "Готический",
     tags: ["Магия", "Альтернативная история"],
     year: 2021,
+    uploadedAt: "2024-03-01T11:20:00Z",
+    publishedAt: "2021-05-15T00:00:00Z",
     chapters: []
   },
   {
@@ -246,6 +263,8 @@ export const mockBooks: Book[] = [
     style: "Легкий",
     tags: ["Отношения", "Юмор", "IT"],
     year: 2023,
+    uploadedAt: "2024-02-25T13:10:00Z",
+    publishedAt: "2023-09-22T00:00:00Z",
     chapters: []
   },
   {
@@ -260,6 +279,8 @@ export const mockBooks: Book[] = [
     style: "Поэтический",
     tags: ["Марс", "Колонизация", "Философия"],
     year: 1950,
+    uploadedAt: "2024-01-15T08:00:00Z",
+    publishedAt: "1950-01-01T00:00:00Z",
     chapters: []
   }
 ];
@@ -392,14 +413,18 @@ export const mockUser: User = {
       percentage: 65,
       wordsRead: 12500,
       lettersRead: 75000,
-      lastReadAt: new Date('2024-03-15')
+      lastReadAt: new Date('2024-03-15'),
+      currentPage: 130,
+      totalPages: 200
     },
     {
       bookId: 2,
       percentage: 30,
       wordsRead: 8200,
       lettersRead: 49200,
-      lastReadAt: new Date('2024-03-12')
+      lastReadAt: new Date('2024-03-12'),
+      currentPage: 45,
+      totalPages: 150
     }
   ]
 };
@@ -429,7 +454,9 @@ export const mockOtherUser: User = {
       percentage: 85,
       wordsRead: 5400,
       lettersRead: 32000,
-      lastReadAt: new Date('2024-03-16')
+      lastReadAt: new Date('2024-03-16'),
+      currentPage: 170,
+      totalPages: 200
     }
   ]
 };

@@ -25,9 +25,8 @@ import { Separator } from '@/components/ui/separator';
 import { SearchBar } from '@/components/SearchBar';
 import { BookCard } from '@/components/BookCard';
 import { PageHeader } from '@/components/PageHeader';
-import { useShelves } from '@/hooks/useShelves';
-import { AddToShelfDialog } from '@/components/AddToShelfDialog';
-import { Plus } from 'lucide-react';
+
+
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 
@@ -44,13 +43,16 @@ interface Book {
   genre?: string;
   publishedYear?: number;
   rating?: number;
+  // Date fields for book display
+  uploadedAt?: string; // ISO date string
+  publishedAt?: string; // ISO date string
   createdAt: string;
   updatedAt: string;
 }
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { shelves, addBookToShelf, removeBookFromShelf } = useShelves();
+
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -188,27 +190,6 @@ export default function SearchPage() {
     });
   }, [books, selectedGenres, selectedStyles, yearRange]);
 
-  const handleToggleShelf = async (bookId: number, shelfId: string, isAdded: boolean) => {
-    try {
-      if (isAdded) {
-        // Check if book is already in shelf
-        const shelf = shelves.find(s => s.id === shelfId);
-        if (shelf && shelf.bookIds.includes(bookId.toString())) {
-          return;
-        }
-        
-        await addBookToShelf(shelfId, bookId.toString());
-      } else {
-        await removeBookFromShelf(shelfId, bookId.toString());
-      }
-    } catch (err) {
-      toast({
-        title: "Ошибка",
-        description: err instanceof Error ? err.message : "Не удалось обновить полку",
-        variant: "destructive",
-      });
-    }
-  };
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres(prev => 
@@ -290,25 +271,6 @@ export default function SearchPage() {
                       coverColor: '' // Not used since we have coverImageUrl
                     }} 
                     variant="detailed"
-                    addToShelfButton={
-                      <AddToShelfDialog 
-                        bookId={parseInt(book.id)}
-                        shelves={shelves.map(s => ({
-                          id: s.id,
-                          title: s.name,
-                          description: s.description,
-                          bookIds: s.bookIds.map(id => parseInt(id)),
-                          color: s.color
-                        }))}
-                        onToggleShelf={handleToggleShelf}
-                        trigger={
-                          <Button variant="outline" size="sm" className="gap-2 w-full">
-                            <Plus className="w-4 h-4" />
-                            Добавить на полку
-                          </Button>
-                        }
-                      />
-                    }
                   />
                 ))
               ) : (

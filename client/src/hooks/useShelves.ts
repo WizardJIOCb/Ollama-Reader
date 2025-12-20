@@ -81,8 +81,10 @@ export function useShelves() {
 
       if (response.ok) {
         const newShelf = await response.json();
-        setShelves(prev => [...prev, newShelf]);
-        return newShelf;
+        // Ensure bookIds is initialized as an empty array for new shelves
+        const shelfWithBookIds = { ...newShelf, bookIds: [] };
+        setShelves(prev => [...prev, shelfWithBookIds]);
+        return shelfWithBookIds;
       } else {
         const errorText = await response.text();
         throw new Error(`Failed to create shelf: ${response.status} ${response.statusText} - ${errorText}`);
@@ -116,10 +118,10 @@ export function useShelves() {
 
       if (response.ok) {
         const updatedShelf = await response.json();
-        // Update local state
+        // Update local state, preserving bookIds property
         setShelves(prev => 
           prev.map(shelf => 
-            shelf.id === id ? updatedShelf : shelf
+            shelf.id === id ? { ...updatedShelf, bookIds: shelf.bookIds || [] } : shelf
           )
         );
         return updatedShelf;

@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -38,7 +39,8 @@ app.use(
 app.use(express.urlencoded({ extended: false }));
 
 // Serve uploaded files BEFORE any other routes to ensure they're not intercepted
-app.use('/uploads', express.static('uploads'));
+const uploadsPath = path.resolve('./uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

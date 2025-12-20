@@ -21,6 +21,7 @@ export default function AddBook() {
     description: '',
     genre: '',
     year: new Date().getFullYear().toString(),
+    publishedAt: '',
   });
   
   const [file, setFile] = useState<File | null>(null);
@@ -91,6 +92,9 @@ export default function AddBook() {
       requestData.append('description', formData.description);
       requestData.append('genre', formData.genre);
       requestData.append('year', formData.year);
+      if (formData.publishedAt) {
+        requestData.append('publishedAt', formData.publishedAt);
+      }
       
       // Add file if selected
       if (file) {
@@ -223,6 +227,18 @@ export default function AddBook() {
                     value={formData.year}
                     onChange={handleChange}
                     placeholder="Год издания"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="publishedAt">Дата публикации</Label>
+                  <Input
+                    id="publishedAt"
+                    name="publishedAt"
+                    type="date"
+                    value={formData.publishedAt}
+                    onChange={handleChange}
+                    placeholder="Дата публикации"
                   />
                 </div>
               </div>

@@ -9,7 +9,15 @@ taskkill /f /im node.exe /fi "WINDOWTITLE eq Frontend*" >nul 2>&1
 REM Start Docker containers if needed
 echo Starting Docker containers...
 docker start postgres-db >nul 2>&1 || (
-    echo PostgreSQL container not found, please start it manually or check your Docker setup.
+    echo Creating and starting PostgreSQL container...
+    docker run --name postgres-db -e POSTGRES_USER=booksuser -e POSTGRES_PASSWORD=bookspassword -e POSTGRES_DB=booksdb -p 5432:5432 -d postgres:15
+    if %errorlevel% neq 0 (
+        echo Failed to create PostgreSQL container. Please check your Docker installation.
+        pause
+        exit /b 1
+    )
+    echo Waiting for PostgreSQL to initialize...
+    timeout /t 10 /nobreak >nul
 )
 
 REM Start Ollama service

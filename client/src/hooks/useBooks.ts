@@ -15,6 +15,7 @@ export interface Book {
   rating?: number;
   commentCount?: number;
   reviewCount?: number;
+  lastActivityDate?: string;
   createdAt: string;
   updatedAt: string;
   uploadedAt?: string;
@@ -46,7 +47,7 @@ export function useBooks() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch('/api/books/by-ids', {
+      const response = await fetch('http://localhost:5001/api/books/by-ids', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,11 +69,176 @@ export function useBooks() {
     }
   };
 
+  // Fetch popular books
+  const fetchPopularBooks = async () => {
+    if (!user) {
+      return [];
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch('http://localhost:5001/api/books/popular', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch popular books: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error('Error fetching popular books:', err);
+      throw err;
+    }
+  };
+
+  // Fetch books by genre
+  const fetchBooksByGenre = async (genre: string) => {
+    if (!user || !genre) {
+      return [];
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`http://localhost:5001/api/books/genre/${encodeURIComponent(genre)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch books by genre: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error('Error fetching books by genre:', err);
+      throw err;
+    }
+  };
+
+  // Fetch recently reviewed books
+  const fetchRecentlyReviewedBooks = async () => {
+    if (!user) {
+      return [];
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch('http://localhost:5001/api/books/recently-reviewed', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch recently reviewed books: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error('Error fetching recently reviewed books:', err);
+      throw err;
+    }
+  };
+
+  // Fetch user's currently reading books
+  const fetchCurrentUserBooks = async () => {
+    if (!user) {
+      return [];
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch('http://localhost:5001/api/books/currently-reading', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch user's currently reading books: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error('Error fetching user\'s currently reading books:', err);
+      throw err;
+    }
+  };
+
+  // Fetch new releases
+  const fetchNewReleases = async () => {
+    if (!user) {
+      return [];
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch('http://localhost:5001/api/books/new-releases', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch new releases: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    } catch (err) {
+      console.error('Error fetching new releases:', err);
+      throw err;
+    }
+  };
+
   return {
     books,
     loading,
     error,
     fetchBooksByIds,
+    fetchPopularBooks,
+    fetchBooksByGenre,
+    fetchRecentlyReviewedBooks,
+    fetchCurrentUserBooks,
+    fetchNewReleases,
   };
 }
 
@@ -99,7 +265,7 @@ export function useBook(bookId: string | undefined): UseBookReturn {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`/api/books/${bookId}`, {
+      const response = await fetch(`http://localhost:5001/api/books/${bookId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

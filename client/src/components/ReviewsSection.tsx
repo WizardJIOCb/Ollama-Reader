@@ -36,7 +36,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
         setLoading(true);
         
         // Fetch all reviews
-        const response = await fetch(`/api/books/${bookId}/reviews`, {
+        const response = await fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
@@ -144,7 +144,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     if (!newReviewContent.trim() || !user || newRating < 1 || newRating > 10) return;
     
     try {
-      const response = await fetch(`/api/books/${bookId}/reviews`, {
+      const response = await fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -277,7 +277,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     
     // Now refetch the reviews to get accurate data from the server
     try {
-      const response = await fetch(`/api/books/${bookId}/reviews`, {
+      const response = await fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
@@ -340,7 +340,7 @@ export function ReviewsSection({ bookId, onReviewsCountChange, onBookRatingChang
     }
     
     try {
-      const response = await fetch(`/api/reviews/${reviewId}`, {
+      const response = await fetch(`http://localhost:5001/api/reviews/${reviewId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`

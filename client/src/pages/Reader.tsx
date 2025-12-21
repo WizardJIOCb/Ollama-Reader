@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { mockBook, mockBookmarks, Bookmark, Chapter } from '@/lib/mockData'; // Import Chapter from mockData
+import { mockBookmarks, Bookmark } from '@/lib/mockData';
 import { BookReader } from '@/components/BookReader';
 import { AISidebar } from '@/components/AISidebar';
 import { BookmarksPanel } from '@/components/BookmarksPanel';
@@ -11,6 +11,16 @@ import { Slider } from '@/components/ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
+import { loadFB2File, type FB2ParsedData } from '@/lib/fb2Parser';
+
+// Define the Chapter interface
+interface Chapter {
+  id: number;
+  title: string;
+  content: string;
+  summary?: string;
+  keyTakeaways?: string[];
+}
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -40,7 +50,7 @@ export default function Reader() {
   
   // State for book data
   const [book, setBook] = useState<Book | null>(null);
-  const [chapters, setChapters] = useState<Chapter[]>([]); // Use Chapter from mockData
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -60,7 +70,7 @@ export default function Reader() {
         }
         
         // Fetch book data
-        const bookResponse = await fetch(`/api/books/${bookId}`, {
+        const bookResponse = await fetch(`http://localhost:5001/api/books/${bookId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -73,45 +83,101 @@ export default function Reader() {
         const bookData = await bookResponse.json();
         setBook(bookData);
         
-        // For now, we'll generate mock chapters since we don't have actual book processing
-        // In a real implementation, this would come from processed book content
-        const mockChapters: Chapter[] = [
-          {
-            id: 1,
-            title: "Введение",
-            content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+        // If book has a file path, try to load and parse it
+        if (bookData.filePath) {
+          try {
+            // Construct the full URL to the book file
+            const fileUrl = `http://localhost:5001/${bookData.filePath}`;
             
+            // For FB2 files, parse the content
+            if (bookData.fileType === 'application/fb2' || bookData.fileType === 'application/x-fictionbook+xml' || bookData.filePath.endsWith('.fb2')) {
+              const parsedData: FB2ParsedData = await loadFB2File(fileUrl);
+              
+              // Convert FB2 chapters to our Chapter format
+              const bookChapters: Chapter[] = parsedData.chapters.map((fb2Chapter, index) => ({
+                id: fb2Chapter.id,
+                title: fb2Chapter.title,
+                content: fb2Chapter.content,
+                summary: `Summary for ${fb2Chapter.title}`,
+                keyTakeaways: [`Key point 1 from ${fb2Chapter.title}`, `Key point 2 from ${fb2Chapter.title}`]
+              }));
+              
+              setChapters(bookChapters);
+            } 
+            // For other file types, we could implement different parsers
+            else {
+              // For now, we'll generate mock chapters for other file types
+              const mockChapters: Chapter[] = [
+                {
+                  id: 1,
+                  title: "Введение",
+                  content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+                  
 В настоящей реализации здесь будет отображаться фактическое содержание книги, которое было извлечено из загруженного файла.
-            
+                  
 Пока что это демонстрационный контент для проверки функциональности чтения.`,
-            summary: "Введение в книгу",
-            keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
-          },
-          {
-            id: 2,
-            title: "Первая глава",
-            content: `Это содержание первой главы книги.
-            
+                  summary: "Введение в книгу",
+                  keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
+                },
+                {
+                  id: 2,
+                  title: "Первая глава",
+                  content: `Это содержание первой главы книги.
+                  
 В реальной системе здесь будет отображаться текст главы, извлеченный из загруженного файла книги.
-            
+                  
 Система также может включать функции анализа текста, выделения ключевых моментов и создания закладок.`,
-            summary: "Основное содержание первой главы",
-            keyTakeaways: ["Ключевая идея главы", "Важные концепции", "Выводы"]
-          },
-          {
-            id: 3,
-            title: "Заключение",
-            content: `Это заключение книги.
-            
+                  summary: "Основное содержание первой главы",
+                  keyTakeaways: ["Ключевая идея главы", "Важные концепции", "Выводы"]
+                },
+                {
+                  id: 3,
+                  title: "Заключение",
+                  content: `Это заключение книги.
+                  
 В заключении обычно подводятся итоги прочитанного, формулируются основные выводы и возможные направления дальнейшего изучения темы.
-            
+                  
 Спасибо за внимание к этой книге!`,
-            summary: "Завершение книги",
-            keyTakeaways: ["Основные выводы", "Рекомендации по дальнейшему изучению"]
+                  summary: "Завершение книги",
+                  keyTakeaways: ["Основные выводы", "Рекомендации по дальнейшему изучению"]
+                }
+              ];
+              
+              setChapters(mockChapters);
+            }
+          } catch (parseError) {
+            console.error('Error parsing book file:', parseError);
+            // Fallback to mock chapters if parsing fails
+            const mockChapters: Chapter[] = [
+              {
+                id: 1,
+                title: "Введение",
+                content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+                
+К сожалению, не удалось загрузить содержание книги из файла. Показывается демонстрационный контент.`,
+                summary: "Введение в книгу",
+                keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
+              }
+            ];
+            
+            setChapters(mockChapters);
           }
-        ];
-        
-        setChapters(mockChapters);
+        } else {
+          // If no file path, use mock chapters
+          const mockChapters: Chapter[] = [
+            {
+              id: 1,
+              title: "Введение",
+              content: `Это пример содержания книги "${bookData.title}" от ${bookData.author}.
+              
+У этой книги нет загруженного файла. Показывается демонстрационный контент для проверки функциональности чтения.`,
+              summary: "Введение в книгу",
+              keyTakeaways: ["Знакомство с темой книги", "Основные идеи автора"]
+            }
+          ];
+          
+          setChapters(mockChapters);
+        }
       } catch (err) {
         console.error('Error fetching book:', err);
         setError(err instanceof Error ? err.message : 'Failed to load book');

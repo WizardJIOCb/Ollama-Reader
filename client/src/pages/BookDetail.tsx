@@ -109,7 +109,7 @@ export default function BookDetail() {
         if (!token) return;
         
         // Track comments request
-        const commentsPromise = trackPendingRequest('comments', bookId, fetch(`/api/books/${bookId}/comments`, {
+        const commentsPromise = trackPendingRequest('comments', bookId, fetch(`http://localhost:5001/api/books/${bookId}/comments`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -122,7 +122,7 @@ export default function BookDetail() {
         }));
         
         // Track reviews request
-        const reviewsPromise = trackPendingRequest('reviews', bookId, fetch(`/api/books/${bookId}/reviews`, {
+        const reviewsPromise = trackPendingRequest('reviews', bookId, fetch(`http://localhost:5001/api/books/${bookId}/reviews`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -343,7 +343,7 @@ export default function BookDetail() {
                 
                 <div className="mt-6 space-y-3">
                   <Button className="w-full gap-2" asChild>
-                    <Link href={`/reader/${book.id}`}>
+                    <Link href={`/read/${book.id}/1`}>
                       <Play className="w-4 h-4" />
                       Читать
                     </Link>

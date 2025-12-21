@@ -190,7 +190,7 @@ export default function Profile() {
             <ClockIcon className="w-5 h-5 text-muted-foreground" />
             Недавно читал
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {user.recentlyReadIds.map(bookId => {
               const book = mockBooks.find(b => b.id === bookId);
               if (!book) return null;

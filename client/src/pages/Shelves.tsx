@@ -25,6 +25,8 @@ export default function Shelves() {
   const { shelves, loading, error, createShelf, updateShelf, deleteShelf, addBookToShelf, removeBookFromShelf } = useShelves();
   const { fetchBooksByIds } = useBooks();
   const [searchQuery, setSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [newShelfName, setNewShelfName] = useState('');
   const [isAddShelfOpen, setIsAddShelfOpen] = useState(false);
   const [editingShelf, setEditingShelf] = useState<{ id: string; name: string; description?: string } | null>(null);
@@ -62,9 +64,51 @@ export default function Shelves() {
     fetchAllShelfBooks();
   }, [shelves]);
   
-  // For search functionality, we still need mock books as a fallback
-  // In a real implementation, we would search the actual database
-  const filteredBooks = [];
+  // Perform global search when search query changes
+  useEffect(() => {
+    const performGlobalSearch = async () => {
+      if (searchQuery.trim() === '') {
+        setGlobalSearchResults([]);
+        return;
+      }
+      
+      setIsSearching(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch(`http://localhost:5001/api/books/search?query=${encodeURIComponent(searchQuery)}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setGlobalSearchResults(data);
+        } else {
+          throw new Error('Failed to search books');
+        }
+      } catch (err) {
+        console.error('Global search error:', err);
+        toast({
+          title: "Ошибка поиска",
+          description: "Не удалось выполнить глобальный поиск",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    
+    const delayDebounceFn = setTimeout(() => {
+      performGlobalSearch();
+    }, 300);
+    
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const handleAddShelf = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,54 +341,156 @@ export default function Shelves() {
             </div>
         </div>
 
-        {/* Search Results (if active) */}
+        {/* Global Search Results (if search query exists) */}
         {searchQuery && (
           <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
               <Search className="w-4 h-4" />
-              Результаты поиска
+              Глобальные результаты поиска
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filteredBooks.length > 0 ? (
-                filteredBooks.map((book: any) => {
-                  // Find reading progress for this book
-                  const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId === parseInt(book.id)) || undefined;
-                  
+            {isSearching ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {globalSearchResults.length > 0 ? (
+                  globalSearchResults.map((book: any) => {
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
+                    
+                    // Convert book data to match BookCard expectations
+                    const bookData = {
+                      id: book.id,
+                      title: book.title,
+                      author: book.author,
+                      description: book.description,
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                      rating: book.rating,
+                      commentCount: book.commentCount,
+                      reviewCount: book.reviewCount,
+                      genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [],
+                      year: book.publishedYear,
+                      uploadedAt: book.uploadedAt,
+                      publishedAt: book.publishedAt,
+                    };
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={bookData} 
+                        variant="detailed"
+                        readingProgress={readingProgress}
+                        addToShelfButton={
+                          <AddToShelfDialog 
+                            bookId={book.id}
+                            shelves={shelves.map(s => ({
+                              id: s.id,
+                              name: s.name,
+                              description: s.description,
+                              bookIds: s.bookIds || [],
+                              color: s.color
+                            }))}
+                            onToggleShelf={handleToggleShelf}
+                            trigger={
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                </svg>
+                                <span className="truncate">Полки</span>
+                              </Button>
+                            }
+                          />
+                        }
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    Ничего не найдено
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+        
+        {/* Shelf Books Matching Search Query */}
+        {searchQuery && (
+          <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+              <BookIcon className="w-4 h-4" />
+              Книги на ваших полках
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(() => {
+                // Flatten all shelf books into a single array
+                const allShelfBooks = Object.values(shelfBooks).flat();
+                
+                // Deduplicate books by ID to avoid showing the same book multiple times
+                const uniqueBooks = allShelfBooks.filter((book, index, self) => 
+                  index === self.findIndex(b => b.id === book.id)
+                );
+                
+                // Filter books that match the search query
+                const matchingShelfBooks = uniqueBooks.filter(book => {
+                  const searchLower = searchQuery.toLowerCase();
                   return (
-                    <BookCard 
-                      key={book.id} 
-                      book={book} 
-                      variant="detailed"
-                      readingProgress={readingProgress}
-                      addToShelfButton={
-                        <AddToShelfDialog 
-                          bookId={book.id}
-                          shelves={shelves.map(s => ({
-                            id: s.id,
-                            name: s.name,
-                            description: s.description,
-                            bookIds: s.bookIds || [],
-                            color: s.color
-                          }))}
-                          onToggleShelf={handleToggleShelf}
-                          trigger={
-                            <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
-                                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                              </svg>
-                              <span className="truncate">Полки</span>
-                            </Button>
-                          }
-                        />
-                      }
-                    />
+                    book.title.toLowerCase().includes(searchLower) ||
+                    book.author.toLowerCase().includes(searchLower) ||
+                    (book.description && book.description.toLowerCase().includes(searchLower)) ||
+                    (book.genre && book.genre.toLowerCase().includes(searchLower))
                   );
-                })
-              ) : (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  Ничего не найдено
-                </div>
-              )}
+                });
+                
+                return matchingShelfBooks.length > 0 ? (
+                  matchingShelfBooks.map((book: any) => {
+                    // Find reading progress for this book
+                    const readingProgress = mockUser.readingProgress?.find(rp => rp.bookId.toString() === book.id) || undefined;
+                    
+                    // Convert book data to match BookCard expectations
+                    const bookData = {
+                      ...book,
+                      coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                      genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                    };
+                    
+                    return (
+                      <BookCard 
+                        key={book.id} 
+                        book={bookData} 
+                        variant="detailed"
+                        readingProgress={readingProgress}
+                        addToShelfButton={
+                          <AddToShelfDialog 
+                            bookId={book.id}
+                            shelves={shelves.map(s => ({
+                              id: s.id,
+                              name: s.name,
+                              description: s.description,
+                              bookIds: s.bookIds || [],
+                              color: s.color
+                            }))}
+                            onToggleShelf={handleToggleShelf}
+                            trigger={
+                              <Button variant="outline" size="sm" className="gap-2 w-full truncate" style={{ cursor: 'pointer' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+                                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                                </svg>
+                                <span className="truncate">Полки</span>
+                              </Button>
+                            }
+                          />
+                        }
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full text-center py-12 text-muted-foreground">
+                    Нет совпадений на ваших полках
+                  </div>
+                );
+              })()}
             </div>
           </section>
         )}
@@ -391,7 +537,7 @@ export default function Shelves() {
                   <p>Полка пуста</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {(shelfBooks[shelf.id] || []).map((book: any) => {
                     // Convert book data to match BookCard expectations
                     const bookData = {

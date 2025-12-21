@@ -88,7 +88,7 @@ export default function SearchPage() {
           throw new Error('No authentication token found');
         }
         
-        const response = await fetch('/api/books/search', {
+        const response = await fetch('http://localhost:5001/api/books/search', {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -137,21 +137,19 @@ export default function SearchPage() {
         throw new Error('No authentication token found');
       }
       
-      // For now, we'll do client-side filtering
-      // In a real implementation, this would be a server-side search
-      const filtered = books.filter(book => {
-        if (!query) return true;
-        
-        const searchLower = query.toLowerCase();
-        return (
-          book.title.toLowerCase().includes(searchLower) ||
-          book.author.toLowerCase().includes(searchLower) ||
-          (book.description && book.description.toLowerCase().includes(searchLower)) ||
-          (book.genre && book.genre.toLowerCase().includes(searchLower))
-        );
+      // Make a server-side search request to the backend service
+      const response = await fetch(`http://localhost:5001/api/books/search?query=${encodeURIComponent(query)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
       
-      setBooks(filtered);
+      if (response.ok) {
+        const data = await response.json();
+        setBooks(data);
+      } else {
+        throw new Error('Failed to search books');
+      }
     } catch (err) {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'Search failed');
@@ -260,19 +258,25 @@ export default function SearchPage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredBooks.length > 0 ? (
-                filteredBooks.map(book => (
-                  <BookCard 
-                    key={book.id} 
-                    book={{
-                      ...book,
-                      id: parseInt(book.id), // Convert string ID to number for BookCard
-                      coverColor: '' // Not used since we have coverImageUrl
-                    }} 
-                    variant="detailed"
-                  />
-                ))
+                filteredBooks.map(book => {
+                  // Convert book data to match BookCard expectations
+                  const bookData = {
+                    ...book,
+                    coverColor: '', // Not used since we have coverImageUrl
+                    coverImageUrl: book.coverImageUrl?.startsWith('uploads/') ? `http://localhost:5001/${book.coverImageUrl}` : book.coverImageUrl,
+                    genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                  };
+                  
+                  return (
+                    <BookCard 
+                      key={book.id} 
+                      book={bookData} 
+                      variant="detailed"
+                    />
+                  );
+                })
               ) : (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
                   <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">

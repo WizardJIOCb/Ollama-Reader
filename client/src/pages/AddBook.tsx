@@ -106,7 +106,7 @@ export default function AddBook() {
         requestData.append('coverImage', coverImage);
       }
       
-      const response = await fetch('/api/books/upload', {
+      const response = await fetch('http://localhost:5001/api/books/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

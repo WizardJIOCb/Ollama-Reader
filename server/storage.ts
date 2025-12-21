@@ -21,6 +21,14 @@ pool.on('error', (err) => {
 
 export const db = drizzle(pool);
 
+// Helper function to check if a book has a valid rating
+const hasValidRating = (book: any): boolean => {
+  return book.rating !== null && 
+         book.rating !== undefined && 
+         book.rating !== '' && 
+         !isNaN(Number(book.rating)) &&
+         Number(book.rating) !== 0; // Treat 0 as no rating
+};
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -33,6 +41,11 @@ export interface IStorage {
   getBook(id: string): Promise<any | undefined>;
   searchBooks(query: string): Promise<any[]>;
   deleteBook(id: string, userId: string): Promise<boolean>;
+  getPopularBooks(): Promise<any[]>;
+  getBooksByGenre(genre: string): Promise<any[]>;
+  getRecentlyReviewedBooks(): Promise<any[]>;
+  getCurrentUserBooks(userId: string): Promise<any[]>;
+  getNewReleases(): Promise<any[]>;
   
   // Shelf operations
   createShelf(userId: string, shelfData: any): Promise<any>;
@@ -136,6 +149,19 @@ export class DBStorage implements IStorage {
       const result = await db.select().from(books).where(eq(books.id, id));
       console.log(`Database result for book ${id}:`, result[0]);
       if (result[0]) {
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${result[0].id}`);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${result[0].id}`);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${result[0].id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${result[0].id}
+        ) AS activity`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...result[0],
@@ -145,7 +171,10 @@ export class DBStorage implements IStorage {
           uploadedAt: result[0].uploadedAt ? result[0].uploadedAt.toISOString() : null,
           publishedAt: result[0].publishedAt ? result[0].publishedAt.toISOString() : null,
           createdAt: result[0].createdAt.toISOString(),
-          updatedAt: result[0].updatedAt.toISOString()
+          updatedAt: result[0].updatedAt.toISOString(),
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
         };
         console.log(`Formatted book ${id}:`, formattedBook);
         return formattedBook;
@@ -161,26 +190,151 @@ export class DBStorage implements IStorage {
     try {
       let result;
       if (query) {
-        // Perform a search based on the query
+        // First, perform a search based on the query across multiple fields, sorted by rating (descending, nulls last)
+        const searchPattern = '%' + query.toLowerCase() + '%';
         result = await db.select().from(books).where(
-          sql`title ILIKE ${'%' + query + '%'} OR author ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'} OR genre ILIKE ${'%' + query + '%'}`
-        );
+          sql`(LOWER(title) ILIKE ${searchPattern} OR LOWER(author) ILIKE ${searchPattern} OR LOWER(description) ILIKE ${searchPattern} OR LOWER(genre) ILIKE ${searchPattern})`
+        ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+        
+        // Additionally, for books with TXT files, search within the content
+        // Get all books to check their file types
+        const allBooks = await db.select().from(books);
+        
+        // For TXT files, we'll search the content
+        const fs = await import('fs');
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        
+        // Get __dirname equivalent for ES modules
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        
+        const contentMatches: any[] = [];
+        
+        for (const book of allBooks) {
+          // Check if this book has a TXT file
+          if (book.filePath && book.filePath.endsWith('.txt')) {
+            try {
+              // Construct the full file path - handle both relative and absolute paths
+              let fullPath;
+              if (path.isAbsolute(book.filePath)) {
+                fullPath = book.filePath;
+              } else {
+                // For relative paths, construct from the project root
+                fullPath = path.join(__dirname, '../../..', book.filePath);
+              }
+              
+              // Check if file exists
+              if (fs.existsSync(fullPath)) {
+                // Read file content
+                const content = fs.readFileSync(fullPath, 'utf8');
+                
+                // Check if query is in content
+                if (content.toLowerCase().includes(query.toLowerCase())) {
+                  // Check if this book is not already in the results
+                  const alreadyIncluded = result.some((r: any) => r.id === book.id);
+                  if (!alreadyIncluded) {
+                    contentMatches.push(book);
+                  }
+                }
+              }
+            } catch (fileError) {
+              console.warn(`Could not read file for book ${book.id}:`, fileError);
+            }
+          }
+        }
+        
+        // Combine field matches with content matches
+        result = [...result, ...contentMatches];
       } else {
-        // Return all books if no query
-        result = await db.select().from(books);
+        // Return all books if no query, sorted by rating (descending, nulls last)
+        result = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       }
       
-      // Format dates for the frontend
-      return result.map(book => ({
-        ...book,
-        rating: book.rating !== null && book.rating !== undefined ? 
-          (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
-          null,
-        uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
-        publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
-        createdAt: book.createdAt.toISOString(),
-        updatedAt: book.updatedAt.toISOString()
+      // For books without ratings, calculate them
+      for (const book of result) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      if (query) {
+        const searchPattern = '%' + query.toLowerCase() + '%';
+        result = await db.select().from(books).where(
+          sql`(LOWER(title) ILIKE ${searchPattern} OR LOWER(author) ILIKE ${searchPattern} OR LOWER(description) ILIKE ${searchPattern} OR LOWER(genre) ILIKE ${searchPattern})`
+        ).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      } else {
+        // Return all books if no query, sorted by rating (descending, nulls last)
+        result = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      }
+      
+      // For each book, get the comment and review counts
+      const resultWithCounts = await Promise.all(result.map(async (book) => {
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Format dates for the frontend
+        return {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString(),
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+        };
       }));
+      
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...resultWithCounts].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      return sortedBooks;
     } catch (error) {
       console.error("Error searching books:", error);
       return [];
@@ -235,8 +389,8 @@ export class DBStorage implements IStorage {
       
       console.log('Fetching books with IDs:', bookIds);
       
-      // First get the books
-      const booksResult = await db.select().from(books).where(inArray(books.id, bookIds));
+      // First get the books and sort by rating (descending, nulls last)
+      const booksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       
       // For books without ratings, calculate them
       for (const book of booksResult) {
@@ -246,10 +400,10 @@ export class DBStorage implements IStorage {
       }
       
       // Fetch the books again with updated ratings
-      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds));
+      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
       
       // For each book, get the comment and review counts
-      const result = await Promise.all(updatedBooksResult.map(async (book) => {
+      const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
         console.log('Fetching counts for book ID:', book.id);
         
         // Get comment count using raw SQL
@@ -261,6 +415,13 @@ export class DBStorage implements IStorage {
         const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
         
         console.log('Review count result for book', book.id, ':', reviewCountResult);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
         
         // Format dates for the frontend
         const formattedBook = {
@@ -277,15 +438,595 @@ export class DBStorage implements IStorage {
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count),
-          reviewCount: parseInt(reviewCountResult.rows[0].count)
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
         };
       }));
       
-      console.log('Books fetched with counts:', result);
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...resultWithCounts].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
       
-      return result;
+      console.log('Books fetched with counts:', sortedBooks);
+      
+      return sortedBooks;
     } catch (error) {
       console.error("Error getting books by IDs:", error);
+      return [];
+    }
+  }
+  
+  async getPopularBooks(): Promise<any[]> {
+    try {
+      console.log('Fetching popular books');
+      
+      // Get books sorted by rating (descending, nulls last), limit to 20
+      // Use SQL to ensure null ratings appear last
+      const booksResult = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      
+      // For each book, get the comment and review counts
+      const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
+        console.log('Fetching counts for book ID:', book.id);
+        
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        console.log('Comment count result for book', book.id, ':', commentCountResult);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        console.log('Review count result for book', book.id, ':', reviewCountResult);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Format dates for the frontend
+        const formattedBook = {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString()
+        };
+        
+        return {
+          ...formattedBook,
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+        };
+      }));
+      
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...resultWithCounts].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      console.log('Popular books fetched with counts:', sortedBooks);
+      
+      return sortedBooks;
+    } catch (error) {
+      console.error("Error getting popular books:", error);
+      return [];
+    }
+  }
+  
+  async getBooksByGenre(genre: string): Promise<any[]> {
+    try {
+      console.log('Fetching books by genre:', genre);
+      
+      // Get books filtered by genre and sorted by rating (descending, nulls last)
+      const booksResult = await db.select().from(books).where(sql`LOWER(genre) LIKE LOWER('%' || ${genre} || '%')`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).where(sql`LOWER(genre) LIKE LOWER('%' || ${genre} || '%')`).orderBy(sql`rating DESC NULLS LAST, created_at DESC`).limit(20);
+      
+      // For each book, get the comment and review counts
+      const resultWithCounts = await Promise.all(updatedBooksResult.map(async (book) => {
+        console.log('Fetching counts for book ID:', book.id);
+        
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        console.log('Comment count result for book', book.id, ':', commentCountResult);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        console.log('Review count result for book', book.id, ':', reviewCountResult);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Format dates for the frontend
+        const formattedBook = {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString()
+        };
+        
+        return {
+          ...formattedBook,
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+        };
+      }));
+      
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...resultWithCounts].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      console.log('Books by genre fetched with counts:', sortedBooks);
+      
+      return sortedBooks;
+    } catch (error) {
+      console.error("Error getting books by genre:", error);
+      return [];
+    }
+  }
+  
+  async getRecentlyReviewedBooks(): Promise<any[]> {
+    try {
+      console.log('Fetching recently reviewed books');
+      
+      // Get books that have recent reviews (within last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      // First get recent reviews
+      const recentReviews = await db.select({
+        bookId: reviews.bookId,
+        createdAt: reviews.createdAt
+      })
+      .from(reviews)
+      .where(sql`created_at > ${thirtyDaysAgo.toISOString()}`)
+      .orderBy(desc(reviews.createdAt))
+      .limit(20);
+      
+      // Get unique book IDs
+      const bookIds = [...new Set(recentReviews.map(review => review.bookId))];
+      
+      if (bookIds.length === 0) {
+        return [];
+      }
+      
+      // Get the books and sort by rating (descending, nulls last)
+      const booksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      
+      // For each book, get the comment and review counts
+      const result = await Promise.all(updatedBooksResult.map(async (book) => {
+        console.log('Fetching counts for book ID:', book.id);
+        
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        console.log('Comment count result for book', book.id, ':', commentCountResult);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        console.log('Review count result for book', book.id, ':', reviewCountResult);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Format dates for the frontend
+        const formattedBook = {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString()
+        };
+        
+        return {
+          ...formattedBook,
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+        };
+      }));
+      
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...result].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      console.log('Recently reviewed books fetched with counts:', sortedBooks);
+      
+      return sortedBooks;
+    } catch (error) {
+      console.error("Error getting recently reviewed books:", error);
+      return [];
+    }
+  }
+  
+  async getCurrentUserBooks(userId: string): Promise<any[]> {
+    try {
+      console.log('Fetching current user books for user ID:', userId);
+      
+      // Get books that the user is currently reading (have reading progress)
+      const readingProgressRecords = await db.select({
+        bookId: readingProgress.bookId,
+        percentage: readingProgress.percentage
+      })
+      .from(readingProgress)
+      .where(eq(readingProgress.userId, userId))
+      .orderBy(desc(readingProgress.lastReadAt))
+      .limit(20);
+      
+      const bookIds = readingProgressRecords.map(record => record.bookId);
+      
+      if (bookIds.length === 0) {
+        return [];
+      }
+      
+      // Get the books and sort by rating (descending, nulls last)
+      const booksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).where(inArray(books.id, bookIds)).orderBy(sql`rating DESC NULLS LAST, created_at DESC`);
+      
+      // For each book, get the comment and review counts
+      const result = await Promise.all(updatedBooksResult.map(async (book) => {
+        console.log('Fetching counts for book ID:', book.id);
+        
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        console.log('Comment count result for book', book.id, ':', commentCountResult);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        console.log('Review count result for book', book.id, ':', reviewCountResult);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Format dates for the frontend
+        const formattedBook = {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString()
+        };
+        
+        return {
+          ...formattedBook,
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+        };
+      }));
+      
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...result].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      console.log('Current user books fetched with counts:', sortedBooks);
+      
+      return sortedBooks;
+    } catch (error) {
+      console.error("Error getting current user books:", error);
+      return [];
+    }
+  }
+  
+  async getNewReleases(): Promise<any[]> {
+    try {
+      console.log('Fetching new releases');
+      
+      // Get books sorted by published date (descending, nulls last) and then by rating (descending, nulls last), limit to 20
+      const booksResult = await db.select().from(books).orderBy(desc(sql`${books.publishedAt} NULLS LAST`), sql`rating DESC NULLS LAST`).limit(20);
+      console.log('Books result from database:', booksResult.length);
+      
+      // For books without ratings, calculate them
+      for (const book of booksResult) {
+        if (book.rating === null || book.rating === undefined) {
+          await this.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      const updatedBooksResult = await db.select().from(books).orderBy(desc(sql`${books.publishedAt} NULLS LAST`), sql`rating DESC NULLS LAST`).limit(20);
+      console.log('Updated books result from database:', updatedBooksResult.length);
+      
+      // For each book, get the comment and review counts
+      const result = await Promise.all(updatedBooksResult.map(async (book) => {
+        console.log('Fetching counts for book ID:', book.id);
+        
+        // Get comment count using raw SQL
+        const commentCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM comments WHERE book_id = ${book.id}`);
+        
+        console.log('Comment count result for book', book.id, ':', commentCountResult);
+        
+        // Get review count using raw SQL
+        const reviewCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM reviews WHERE book_id = ${book.id}`);
+        
+        console.log('Review count result for book', book.id, ':', reviewCountResult);
+        
+        // Get the latest comment or review date
+        const latestActivityResult = await db.execute(sql`SELECT MAX(created_at) as latest_date FROM (
+          SELECT created_at FROM comments WHERE book_id = ${book.id}
+          UNION ALL
+          SELECT created_at FROM reviews WHERE book_id = ${book.id}
+        ) AS activity`);
+        
+        // Format dates for the frontend
+        const formattedBook = {
+          ...book,
+          rating: book.rating !== null && book.rating !== undefined ? 
+            (typeof book.rating === 'number' ? book.rating : parseFloat(book.rating.toString())) : 
+            null,
+          uploadedAt: book.uploadedAt ? book.uploadedAt.toISOString() : null,
+          publishedAt: book.publishedAt ? book.publishedAt.toISOString() : null,
+          createdAt: book.createdAt.toISOString(),
+          updatedAt: book.updatedAt.toISOString()
+        };
+        
+        return {
+          ...formattedBook,
+          commentCount: parseInt(commentCountResult.rows[0].count),
+          reviewCount: parseInt(reviewCountResult.rows[0].count),
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date).toISOString() : null
+        };
+      }));
+      
+      // Sort the books in JavaScript to ensure proper ordering
+      // New sorting logic: by rating (desc), then by total engagement (reviews + comments) (desc), then by creation date (desc)
+      const sortedBooks = [...result].sort((a, b) => {
+        // Determine if each book has a valid rating
+        const hasRatingA = a.rating !== null && a.rating !== undefined && a.rating !== '' && !isNaN(Number(a.rating));
+        const hasRatingB = b.rating !== null && b.rating !== undefined && b.rating !== '' && !isNaN(Number(b.rating));
+        
+        // Convert ratings to numbers for comparison
+        const ratingANum = hasRatingA ? (typeof a.rating === 'number' ? a.rating : parseFloat(a.rating.toString())) : 0;
+        const ratingBNum = hasRatingB ? (typeof b.rating === 'number' ? b.rating : parseFloat(b.rating.toString())) : 0;
+        
+        // First sort by rating (descending)
+        if (ratingBNum !== ratingANum) {
+          return ratingBNum - ratingANum;
+        }
+        
+        // If ratings are equal, sort by total engagement (reviews + comments) (descending)
+        // Handle cases where counts might be undefined
+        const reviewCountA = a.reviewCount !== undefined ? a.reviewCount : 0;
+        const reviewCountB = b.reviewCount !== undefined ? b.reviewCount : 0;
+        const commentCountA = a.commentCount !== undefined ? a.commentCount : 0;
+        const commentCountB = b.commentCount !== undefined ? b.commentCount : 0;
+        
+        const totalEngagementA = reviewCountA + commentCountA;
+        const totalEngagementB = reviewCountB + commentCountB;
+        
+        if (totalEngagementB !== totalEngagementA) {
+          return totalEngagementB - totalEngagementA;
+        }
+        
+        // If ratings and total engagement are equal, sort by creation date (descending - newer first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      console.log('New releases fetched with counts:', sortedBooks);
+      
+      return sortedBooks;
+    } catch (error) {
+      console.error("Error getting new releases:", error);
       return [];
     }
   }

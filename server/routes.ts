@@ -265,6 +265,95 @@ export async function registerRoutes(
     }
   });
   
+  // Get popular books (sorted by rating)
+  app.get("/api/books/popular", authenticateToken, async (req, res) => {
+    console.log("Get popular books endpoint called");
+    try {
+      const books = await storage.getPopularBooks();
+      res.json(books);
+    } catch (error) {
+      console.error("Get popular books error:", error);
+      res.status(500).json({ error: "Failed to get popular books" });
+    }
+  });
+  
+  // Get books by genre
+  app.get("/api/books/genre/:genre", authenticateToken, async (req, res) => {
+    console.log("Get books by genre endpoint called");
+    try {
+      const { genre } = req.params;
+      const books = await storage.getBooksByGenre(genre);
+      res.json(books);
+    } catch (error) {
+      console.error("Get books by genre error:", error);
+      res.status(500).json({ error: "Failed to get books by genre" });
+    }
+  });
+  
+  // Get recently reviewed books
+  app.get("/api/books/recently-reviewed", authenticateToken, async (req, res) => {
+    console.log("Get recently reviewed books endpoint called");
+    try {
+      const books = await storage.getRecentlyReviewedBooks();
+      res.json(books);
+    } catch (error) {
+      console.error("Get recently reviewed books error:", error);
+      res.status(500).json({ error: "Failed to get recently reviewed books" });
+    }
+  });
+  
+  // Get user's currently reading books
+  app.get("/api/books/currently-reading", authenticateToken, async (req, res) => {
+    console.log("Get user's currently reading books endpoint called");
+    try {
+      const userId = (req as any).user.userId;
+      const books = await storage.getCurrentUserBooks(userId);
+      res.json(books);
+    } catch (error) {
+      console.error("Get user's currently reading books error:", error);
+      res.status(500).json({ error: "Failed to get user's currently reading books" });
+    }
+  });
+  
+  // Get new releases
+  app.get("/api/books/new-releases", authenticateToken, async (req, res) => {
+    console.log("Get new releases endpoint called");
+    try {
+      const books = await storage.getNewReleases();
+      console.log("New releases fetched successfully, count:", books.length);
+      res.json(books);
+    } catch (error) {
+      console.error("Get new releases error:", error);
+      res.status(500).json({ error: "Failed to get new releases" });
+    }
+  });
+  
+  // Search books
+  app.get("/api/books/search", authenticateToken, async (req, res) => {
+    console.log("Search books endpoint called");
+    try {
+      const query = req.query.query ? String(req.query.query) : '';
+      console.log("Search query:", query);
+      
+      let books = await storage.searchBooks(query);
+      
+      // For books without ratings, calculate them
+      for (const book of books) {
+        if (book.rating === null || book.rating === undefined) {
+          await storage.updateBookAverageRating(book.id);
+        }
+      }
+      
+      // Fetch the books again with updated ratings
+      books = await storage.searchBooks(query);
+      
+      res.json(books);
+    } catch (error) {
+      console.error("Search books error:", error);
+      res.status(500).json({ error: "Failed to search books" });
+    }
+  });
+  
   // Get a single book by ID
   app.get("/api/books/:id", authenticateToken, async (req, res) => {
     console.log("Get book by ID endpoint called");
@@ -295,31 +384,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get book by ID error:", error);
       res.status(500).json({ error: "Failed to get book" });
-    }
-  });
-  
-  // Search books
-  app.get("/api/books/search", authenticateToken, async (req, res) => {
-    console.log("Search books endpoint called");
-    try {
-      // For now, return all books
-      // In a real implementation, this would filter based on query parameters
-      let books = await storage.searchBooks('');
-      
-      // For books without ratings, calculate them
-      for (const book of books) {
-        if (book.rating === null || book.rating === undefined) {
-          await storage.updateBookAverageRating(book.id);
-        }
-      }
-      
-      // Fetch the books again with updated ratings
-      books = await storage.searchBooks('');
-      
-      res.json(books);
-    } catch (error) {
-      console.error("Search books error:", error);
-      res.status(500).json({ error: "Failed to search books" });
     }
   });
 

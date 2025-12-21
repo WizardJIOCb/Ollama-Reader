@@ -20,6 +20,10 @@ for /f "tokens=5" %%i in ('netstat -ano ^| findstr :3001 ^| findstr LISTENING') 
     taskkill /f /pid %%i >nul 2>&1
 )
 
+REM Stop Docker container
+echo Stopping PostgreSQL container...
+docker stop postgres-db >nul 2>&1
+
 REM Kill all node processes as a last resort
 echo Killing all Node.js processes as a last resort...
 taskkill /f /im node.exe >nul 2>&1
@@ -29,6 +33,7 @@ echo ================================
 echo DEVELOPMENT PROCESSES STOPPED
 echo ================================
 echo All backend and frontend processes have been terminated.
+echo PostgreSQL container has been stopped.
 echo You can now safely run start-dev.bat again.
 echo ================================
 pause

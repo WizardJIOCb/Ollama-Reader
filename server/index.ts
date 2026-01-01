@@ -46,7 +46,7 @@ app.use((req, res, next) => {
 app.use(express.urlencoded({ extended: false }));
 
 // Serve uploaded files BEFORE any other routes to ensure they're not intercepted
-const uploadsPath = path.resolve('./uploads');
+const uploadsPath = path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
 
 export function log(message: string, source = "express") {

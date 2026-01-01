@@ -79,6 +79,17 @@ export default function AddBook() {
       return;
     }
     
+    // Validate file size (max 100MB)
+    const maxFileSize = 100 * 1024 * 1024; // 100MB in bytes
+    if (file.size > maxFileSize) {
+      toast({
+        title: "Ошибка",
+        description: `Файл слишком большой. Максимальный размер: ${(maxFileSize / 1024 / 1024).toFixed(0)} MB`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setUploading(true);
     
     try {

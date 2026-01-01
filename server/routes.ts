@@ -32,7 +32,7 @@ const storageEngine = multer.diskStorage({
 const upload = multer({ 
   storage: storageEngine,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
     // Accept book files and image files

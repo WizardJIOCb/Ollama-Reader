@@ -287,7 +287,7 @@ server {
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
 
     # Client max body size for file uploads
-    client_max_body_size 50M;
+    client_max_body_size 100M;
 
     # Logging
     access_log /var/log/nginx/reader.market.access.log;
@@ -327,7 +327,7 @@ server {
         proxy_cache_bypass \$http_upgrade;
         
         # Allow larger file uploads
-        client_max_body_size 50M;
+        client_max_body_size 100M;
     }
 
     # Serve all other requests from the React app
@@ -793,7 +793,7 @@ server {
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
 
     # Client max body size for file uploads
-    client_max_body_size 50M;
+    client_max_body_size 100M;
 
     # Logging
     access_log /var/log/nginx/reader.market.access.log;
@@ -833,7 +833,7 @@ server {
         proxy_cache_bypass \$http_upgrade;
         
         # Allow larger file uploads
-        client_max_body_size 50M;
+        client_max_body_size 100M;
     }
 
     # Serve all other requests from the React app

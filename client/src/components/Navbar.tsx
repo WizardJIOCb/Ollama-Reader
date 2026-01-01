@@ -42,12 +42,12 @@ export function Navbar() {
               <Link href="/shelves" className="text-sm hover:text-primary transition-colors cursor-pointer">
                 Мои полки
               </Link>
+              <Link href="/" className="text-sm hover:text-primary transition-colors cursor-pointer">
+                О проекте
+              </Link>
               <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer">
                 <User className="w-4 h-4" />
                 <span>Профиль ({user.username})</span>
-              </Link>
-              <Link href="/" className="text-sm hover:text-primary transition-colors cursor-pointer">
-                О проекте
               </Link>
             </div>
           ) : (

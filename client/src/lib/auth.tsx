@@ -12,8 +12,8 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
-  register: (username: string, password: string, email?: string, fullName?: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  register: (username: string, password: string, email?: string, fullName?: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
       const response = await authApi.login(username, password);
 
@@ -56,17 +56,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(data.user);
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
-        return true;
+        return { success: true };
       } else {
-        return false;
+        // Try to get error message from response
+        const errorData = await response.json().catch(() => ({}));
+        return { success: false, message: errorData.error || 'Invalid username or password' };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      return { success: false, message: 'An error occurred during login' };
     }
   };
 
-  const register = async (username: string, password: string, email?: string, fullName?: string): Promise<boolean> => {
+  const register = async (username: string, password: string, email?: string, fullName?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       const response = await authApi.register(username, password, email, fullName);
 
@@ -75,13 +77,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(data.user);
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
-        return true;
+        return { success: true };
       } else {
-        return false;
+        // Try to get error message from response
+        const errorData = await response.json().catch(() => ({}));
+        return { success: false, message: errorData.error || 'Registration failed. Please try again.' };
       }
     } catch (error) {
       console.error('Registration error:', error);
-      return false;
+      return { success: false, message: 'An error occurred during registration' };
     }
   };
 
@@ -103,8 +107,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     AuthContext.Provider,
     { value },
     children
-  ) as React.ReactElement;
-};
+  );
+}
 
 export function useAuth(): AuthContextType {
   const context = React.useContext(AuthContext);

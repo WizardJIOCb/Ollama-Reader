@@ -17,7 +17,9 @@ import {
   Send,
   Clock,
   Award,
-  Trash
+  Trash,
+  Bookmark,
+  Activity
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,7 +27,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { formatDistanceToNow, format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ReactionBar } from '@/components/ReactionBar';
-import { PageHeader } from '@/components/PageHeader';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useShelves } from '@/hooks/useShelves';
@@ -95,6 +96,21 @@ export default function BookDetail() {
       month: 'long',
       day: 'numeric'
     });
+  };
+  
+  // Format date for display based on age (relative for <24h, full for >=24h)
+  const formatDateDisplay = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours >= 24) {
+      // More than 24 hours old - show full date/time
+      return format(date, 'dd.MM.yyyy HH:mm', { locale: ru });
+    } else {
+      // Less than 24 hours old - show relative time
+      return formatDistanceToNow(date, { addSuffix: true, locale: ru });
+    }
   };
   
   const [match, params] = useRoute('/book/:bookId');
@@ -370,6 +386,9 @@ export default function BookDetail() {
           title: "Комментарий удален",
           description: "Ваш комментарий успешно удален!",
         });
+        
+        // Refresh comments and reviews to ensure proper state
+        await fetchCommentsAndReviewsOnce();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete comment');
@@ -427,6 +446,9 @@ export default function BookDetail() {
             title: "Рецензия добавлена",
             description: "Ваша рецензия успешно добавлена!",
           });
+          
+          // Refresh comments and reviews to ensure proper state
+          await fetchCommentsAndReviewsOnce();
         } else {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to add review');
@@ -478,6 +500,9 @@ export default function BookDetail() {
           title: "Рецензия удалена",
           description: "Ваша рецензия успешно удалена!",
         });
+        
+        // Refresh comments and reviews to ensure proper state
+        await fetchCommentsAndReviewsOnce();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete review');
@@ -678,8 +703,7 @@ export default function BookDetail() {
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <PageHeader title="Детали книги" />
-        
+
         {/* Book Card - Matching the design from library */}
         <Card className="overflow-hidden mb-8">
           <div className="flex flex-col md:flex-row">
@@ -763,7 +787,7 @@ export default function BookDetail() {
                           />
                         ))}
                       </div>
-                      <span className="font-medium ml-2">{book.rating}/10</span>
+                      <span className="font-medium ml-2">{book.rating}/10 [{book.reviewCount || 0}]</span>
                     </div>
                   </div>
                 )}
@@ -790,9 +814,10 @@ export default function BookDetail() {
                     </div>
                   )}
                   
-                  {book.shelfCount !== undefined && (
+                  {typeof book.shelfCount === 'number' && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                      <span>📚 {book.shelfCount} раз добавили на полки</span>
+                      <Bookmark className="w-3 h-3 mr-1" />
+                      <span>Добавили на полку: {book.shelfCount}</span>
                     </div>
                   )}
                   
@@ -810,6 +835,7 @@ export default function BookDetail() {
                   
                   {book.lastActivityDate && (
                     <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                      <Activity className="w-3 h-3 mr-1" />
                       <span>Последняя активность: {book.lastActivityDate ? formatDate(book.lastActivityDate) : ''}</span>
                     </div>
                   )}
@@ -823,23 +849,13 @@ export default function BookDetail() {
         
 
         
-        {/* Tabs for Table of Contents, Comments, and Reviews */}
+        {/* Tabs for Comments and Reviews */}
         <Card>
           <Tabs defaultValue="comments" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="toc">Оглавление</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="comments">Комментарии ({bookComments.length})</TabsTrigger>
               <TabsTrigger value="reviews">Рецензии ({bookReviews.length})</TabsTrigger>
             </TabsList>
-            
-            {/* Table of Contents Tab */}
-            <TabsContent value="toc" className="mt-0">
-              <CardContent className="p-0">
-                <div className="p-4 text-center text-muted-foreground">
-                  Оглавление будет доступно после начала чтения книги.
-                </div>
-              </CardContent>
-            </TabsContent>
             
             {/* Comments Tab */}
             <TabsContent value="comments" className="mt-0">
@@ -874,7 +890,9 @@ export default function BookDetail() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-medium text-sm">{comment.author}</p>
-                          {comment.userId === user?.id && (
+                          {user?.id && ((comment.userId === user.id) ||
+                            (comment.author && user.fullName && comment.author.includes(user.fullName)) ||
+                            (comment.author && user.username && comment.author.includes(user.username))) && (
                             <Button 
                               variant="ghost" 
                               size="sm" 
@@ -889,7 +907,7 @@ export default function BookDetail() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <p className="text-xs text-muted-foreground cursor-help mb-3">
-                                {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ru })}
+                                {formatDateDisplay(comment.createdAt)}
                               </p>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -912,93 +930,138 @@ export default function BookDetail() {
             {/* Reviews Tab */}
             <TabsContent value="reviews" className="mt-0">
               <CardContent className="space-y-6 pt-4">
-                {/* Add Review Form */}
-                <div className="pt-4">
-                  <h4 className="font-medium mb-3">Написать рецензию</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">Оценка:</span>
-                      <div className="flex">
-                        {[...Array(10)].map((_, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setReviewRating(i + 1)}
-                            className="p-1"
-                          >
-                            <Star 
-                              className={`w-5 h-5 ${
-                                i < reviewRating 
-                                  ? 'fill-yellow-400 text-yellow-400' 
-                                  : 'text-muted-foreground'
-                              }`} 
-                            />
-                          </button>
-                        ))}
-                      </div>
-                      <span className="text-sm font-medium">{reviewRating}/10</span>
-                    </div>
-                    <Textarea 
-                      placeholder="Ваша рецензия..." 
-                      value={newReview}
-                      onChange={(e) => setNewReview(e.target.value)}
-                      rows={5}
-                    />
-                    <div className="flex justify-end">
-                      <Button onClick={handleAddReview} className="gap-2">
-                        <Send className="w-4 h-4" />
-                        Опубликовать
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                
-                {bookReviews.map(review => (
-                  <div key={review.id} className="border-b pb-6 last:border-0 last:pb-0">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarFallback>
-                          <User className="w-5 h-5" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-sm">{review.author}</p>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm font-medium">{review.rating}/10</span>
+                {
+                  (() => {
+                    // Check if user has already reviewed - using a more robust approach
+                    const userHasReviewed = user?.id ? bookReviews.some(review => {
+                      // Direct userId comparison (most reliable)
+                      if (review.userId && user.id) {
+                        return review.userId === user.id;
+                      }
+                      // Fallback: check by author name
+                      if (review.author && user.fullName) {
+                        return review.author.includes(user.fullName);
+                      }
+                      if (review.author && user.username) {
+                        return review.author.includes(user.username);
+                      }
+                      return false;
+                    }) : false;
+                    
+                    // Sort reviews: user's review first, then others by date (newest first)
+                    const sortedReviews = [...bookReviews].sort((a, b) => {
+                      const isAUserReview = user?.id ? (a.userId === user.id || 
+                                          (a.author && user.fullName && a.author.includes(user.fullName)) ||
+                                          (a.author && user.username && a.author.includes(user.username))) : false;
+                      const isBUserReview = user?.id ? (b.userId === user.id || 
+                                          (b.author && user.fullName && b.author.includes(user.fullName)) ||
+                                          (b.author && user.username && b.author.includes(user.username))) : false;
+                      
+                      // If one is user's review and the other isn't, user's review comes first
+                      if (isAUserReview && !isBUserReview) return -1;
+                      if (isBUserReview && !isAUserReview) return 1;
+                      
+                      // If both are user's reviews or both are others, sort by date (newest first)
+                      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                    });
+                    
+                    return (
+                      <>
+                        {/* Add Review Form - only show if user hasn't reviewed yet */}
+                        {!userHasReviewed && (
+                          <div className="pt-4 border-t mt-4">
+                            <h4 className="font-medium mb-3">Написать рецензию</h4>
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">Оценка:</span>
+                                <div className="flex">
+                                  {[...Array(10)].map((_, i) => (
+                                    <button
+                                      key={i}
+                                      onClick={() => setReviewRating(i + 1)}
+                                      className="p-1"
+                                    >
+                                      <Star 
+                                        className={`w-5 h-5 ${
+                                          i < reviewRating 
+                                            ? 'fill-yellow-400 text-yellow-400' 
+                                            : 'text-muted-foreground'
+                                        }`} 
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                                <span className="text-sm font-medium">{reviewRating}/10</span>
+                              </div>
+                              <Textarea 
+                                placeholder="Ваша рецензия..." 
+                                value={newReview}
+                                onChange={(e) => setNewReview(e.target.value)}
+                                rows={5}
+                              />
+                              <div className="flex justify-end">
+                                <Button onClick={handleAddReview} className="gap-2">
+                                  <Send className="w-4 h-4" />
+                                  Опубликовать
+                                </Button>
+                              </div>
+                            </div>
                           </div>
-                          {review.userId === user?.id && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDeleteReview(review.id)}
-                            >
-                              <Trash className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <p className="text-xs text-muted-foreground cursor-help mb-3">
-                                {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true, locale: ru })}
-                              </p>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <p className="text-foreground/90 mb-3">{review.content}</p>
-                        <ReactionBar 
-                          reactions={review.reactions} 
-                          onReact={(emoji) => handleReactToReview(review.id, emoji)} 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        )}
+                        
+                        {sortedReviews.map(review => (
+                          <div key={review.id} className="border-b pb-6 last:border-0 last:pb-0">
+                            <div className="flex items-start gap-3">
+                              <Avatar className="w-10 h-10">
+                                <AvatarFallback>
+                                  <User className="w-5 h-5" />
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-medium text-sm">{review.author}</p>
+                                  <div className="flex items-center gap-1">
+                                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                    <span className="text-sm font-medium">{review.rating}/10</span>
+                                  </div>
+                                  {user?.id && ((review.userId === user.id) ||
+                                    (review.author && user.fullName && review.author.includes(user.fullName)) ||
+                                    (review.author && user.username && review.author.includes(user.username))) && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleDeleteReview(review.id)}
+                                    >
+                                      <Trash className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-xs text-muted-foreground cursor-help mb-3">
+                                        {formatDateDisplay(review.createdAt)}
+                                      </p>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{format(new Date(review.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <p className="text-foreground/90 mb-3">{review.content}</p>
+                                <ReactionBar 
+                                  reactions={review.reactions} 
+                                  onReact={(emoji) => handleReactToReview(review.id, emoji)} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()
+                }
               </CardContent>
             </TabsContent>
           </Tabs>

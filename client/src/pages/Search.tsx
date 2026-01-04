@@ -32,6 +32,7 @@ interface Book {
   // Date fields for book display
   uploadedAt?: string; // ISO date string
   publishedAt?: string; // ISO date string
+  lastActivityDate?: string; // ISO date string
   createdAt: string;
   updatedAt: string;
 }

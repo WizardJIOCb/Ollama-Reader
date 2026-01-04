@@ -10,7 +10,9 @@ import {
   Clock, 
   MessageSquare,
   Star, 
-  User 
+  User,
+  Bookmark,
+  Activity
 } from 'lucide-react';
 import { Link } from 'wouter';
 
@@ -165,9 +167,10 @@ export const BookCard: React.FC<BookCardProps> = ({
           {/* Book statistics */}
           {(book.shelfCount !== undefined || book.cardViewCount !== undefined || book.readerOpenCount !== undefined) && (
             <>
-              {book.shelfCount !== undefined && (
+              {typeof book.shelfCount === 'number' && (
                 <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
-                  <span>📚 {book.shelfCount} раз добавили на полки</span>
+                  <Bookmark className="w-3 h-3 mr-1" />
+                  <span>Добавили на полку: {book.shelfCount}</span>
                 </div>
               )}
               {book.cardViewCount !== undefined && (
@@ -186,6 +189,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           {/* Last activity date */}
           {book.lastActivityDate && (
             <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+              <Activity className="w-3 h-3 mr-1" />
               <span>Последняя активность: {formatDate(book.lastActivityDate)}</span>
             </div>
           )}

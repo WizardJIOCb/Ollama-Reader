@@ -365,12 +365,14 @@ export default function Shelves() {
                       title: book.title,
                       author: book.author,
                       description: book.description,
-                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl,
+                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
+                      shelfCount: book.shelfCount,
                       cardViewCount: book.cardViewCount,
                       readerOpenCount: book.readerOpenCount,
+                      lastActivityDate: book.lastActivityDate,
                       genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [],
                       year: book.publishedYear,
                       uploadedAt: book.uploadedAt,
@@ -456,10 +458,12 @@ export default function Shelves() {
                     // Convert book data to match BookCard expectations
                     const bookData = {
                       ...book,
-                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl.replace(/^\//, '')}` : book.coverImageUrl,
+                      coverImage: book.coverImageUrl?.startsWith('uploads/') ? `/${book.coverImageUrl}` : book.coverImageUrl,
                       genre: book.genre ? (typeof book.genre === 'string' ? book.genre.split(',').map((g: string) => g.trim()) : book.genre) : [],
+                      shelfCount: book.shelfCount,
                       cardViewCount: book.cardViewCount,
                       readerOpenCount: book.readerOpenCount,
+                      lastActivityDate: book.lastActivityDate,
                     };
                     
                     return (
@@ -559,8 +563,10 @@ export default function Shelves() {
                       rating: book.rating,
                       commentCount: book.commentCount,
                       reviewCount: book.reviewCount,
+                      shelfCount: book.shelfCount,
                       cardViewCount: book.cardViewCount,
                       readerOpenCount: book.readerOpenCount,
+                      lastActivityDate: book.lastActivityDate,
                       genre: book.genre ? book.genre.split(',').map((g: string) => g.trim()) : [], // Split genre string into array
                       year: book.publishedYear,
                       uploadedAt: book.uploadedAt, // Add upload date

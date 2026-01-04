@@ -191,7 +191,7 @@ export class DBStorage implements IStorage {
           updatedAt: result[0].updatedAt.toISOString(),
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
-          shelfCount: parseInt(shelfCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
           lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
@@ -315,8 +315,16 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
+        
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
         // Format dates for the frontend
         return {
@@ -330,9 +338,10 @@ export class DBStorage implements IStorage {
           updatedAt: book.updatedAt.toISOString(),
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       
@@ -495,6 +504,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...book,
@@ -510,13 +522,19 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       
@@ -598,6 +616,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...book,
@@ -613,13 +634,19 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       
@@ -700,6 +727,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...book,
@@ -715,13 +745,19 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       
@@ -824,6 +860,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...book,
@@ -839,13 +878,19 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       
@@ -942,6 +987,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...book,
@@ -957,13 +1005,19 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       
@@ -1046,6 +1100,9 @@ export class DBStorage implements IStorage {
           SELECT created_at FROM reviews WHERE book_id = ${book.id}
         ) AS activity`);
         
+        // Get shelf count using raw SQL
+        const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${book.id}`);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...book,
@@ -1061,13 +1118,19 @@ export class DBStorage implements IStorage {
         // Get book view statistics
         const viewStats = await this.getBookViewStats(book.id);
         
+        // Determine the last activity date: use the latest comment/review date, or fall back to uploaded date if no activity
+        const lastActivityDate = latestActivityResult.rows[0]?.latest_date 
+          ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
+          : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
           reviewCount: parseInt(reviewCountResult.rows[0].count as string),
+          shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: lastActivityDate
         };
       }));
       

@@ -2440,6 +2440,7 @@ export class DBStorage implements IStorage {
         id: users.id,
         username: users.username,
         fullName: users.fullName,
+        email: users.email,
         accessLevel: users.accessLevel,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,

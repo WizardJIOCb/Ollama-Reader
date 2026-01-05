@@ -43,6 +43,7 @@ interface User {
   id: string;
   username: string;
   fullName: string;
+  email: string | null;
   accessLevel: string;
   createdAt: string;
   lastLogin: string | null;
@@ -285,6 +286,7 @@ const UserManagement: React.FC = () => {
               <TableRow>
                 <TableHead>Login</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Registration Date</TableHead>
                 <TableHead>Last Login</TableHead>
@@ -300,6 +302,7 @@ const UserManagement: React.FC = () => {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.fullName || 'N/A'}</TableCell>
+                  <TableCell>{user.email || 'N/A'}</TableCell>
                   <TableCell>
                     <Badge variant={getAccessLevelBadgeVariant(user.accessLevel)}>
                       {user.accessLevel.charAt(0).toUpperCase() + user.accessLevel.slice(1)}

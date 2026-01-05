@@ -1636,7 +1636,8 @@ export async function registerRoutes(
         user: {
           id: targetUser.id,
           username: targetUser.username,
-          fullName: targetUser.fullName
+          fullName: targetUser.fullName,
+          email: targetUser.email
         }
       });
     } catch (error) {
@@ -1657,7 +1658,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid access level" });
       }
       
-      const updatedUser = await storage.updateUser(userId, { accessLevel });
+      const updatedUser = await storage.updateAccessLevel(userId, accessLevel);
       
       const { password: _, ...userWithoutPassword } = updatedUser;
       res.json(userWithoutPassword);

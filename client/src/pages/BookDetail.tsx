@@ -372,7 +372,11 @@ export default function BookDetail() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`/api/comments/${commentId}`, {
+      // Check if user is admin or moderator to use admin endpoint
+      const isAdminOrModerator = user?.accessLevel === 'admin' || user?.accessLevel === 'moder';
+      const endpoint = isAdminOrModerator ? `/api/admin/comments/${commentId}` : `/api/comments/${commentId}`;
+      
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -384,7 +388,7 @@ export default function BookDetail() {
         setBookComments(prev => prev.filter(comment => comment.id !== commentId));
         toast({
           title: "Комментарий удален",
-          description: "Ваш комментарий успешно удален!",
+          description: "Комментарий успешно удален!",
         });
         
         // Refresh comments and reviews to ensure proper state
@@ -471,7 +475,11 @@ export default function BookDetail() {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`/api/reviews/${reviewId}`, {
+      // Check if user is admin or moderator to use admin endpoint
+      const isAdminOrModerator = user?.accessLevel === 'admin' || user?.accessLevel === 'moder';
+      const endpoint = isAdminOrModerator ? `/api/admin/reviews/${reviewId}` : `/api/reviews/${reviewId}`;
+      
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -498,7 +506,7 @@ export default function BookDetail() {
         
         toast({
           title: "Рецензия удалена",
-          description: "Ваша рецензия успешно удалена!",
+          description: "Рецензия успешно удалена!",
         });
         
         // Refresh comments and reviews to ensure proper state
@@ -890,9 +898,10 @@ export default function BookDetail() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-medium text-sm">{comment.author}</p>
-                          {user?.id && ((comment.userId === user.id) ||
+                          {user?.id && (((comment.userId === user.id) ||
                             (comment.author && user.fullName && comment.author.includes(user.fullName)) ||
-                            (comment.author && user.username && comment.author.includes(user.username))) && (
+                            (comment.author && user.username && comment.author.includes(user.username))) ||
+                            (user.accessLevel === 'admin' || user.accessLevel === 'moder')) && (
                             <Button 
                               variant="ghost" 
                               size="sm" 
@@ -1024,9 +1033,10 @@ export default function BookDetail() {
                                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                                     <span className="text-sm font-medium">{review.rating}/10</span>
                                   </div>
-                                  {user?.id && ((review.userId === user.id) ||
+                                  {user?.id && (((review.userId === user.id) ||
                                     (review.author && user.fullName && review.author.includes(user.fullName)) ||
-                                    (review.author && user.username && review.author.includes(user.username))) && (
+                                    (review.author && user.username && review.author.includes(user.username))) ||
+                                    (user.accessLevel === 'admin' || user.accessLevel === 'moder')) && (
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 

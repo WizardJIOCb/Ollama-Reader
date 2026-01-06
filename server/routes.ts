@@ -1519,6 +1519,26 @@ export async function registerRoutes(
     }
   });
   
+  // Admin: Delete any message
+  app.delete("/api/admin/messages/:id", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    console.log("Admin delete message endpoint called");
+    try {
+      const { id } = req.params;
+      
+      // Admins can delete any message
+      const success = await storage.deleteMessage(id, null);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+      
+      res.status(204).send(); // No content response for successful deletion
+    } catch (error) {
+      console.error("Admin delete message error:", error);
+      res.status(500).json({ error: "Failed to delete message" });
+    }
+  });
+  
   // Admin: Get dashboard statistics
   app.get("/api/admin/dashboard-stats", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Get dashboard stats endpoint called");

@@ -120,3 +120,30 @@ export const commentsApi = {
     method: 'DELETE',
   }),
 };
+
+export const messagesApi = {
+  // Send a new message
+  sendMessage: (recipientId: string, content: string) => apiCall('/api/messages', {
+    method: 'POST',
+    body: JSON.stringify({ recipientId, content }),
+  }),
+  
+  // Get messages with a specific user
+  getMessagesWithUser: (userId: string) => apiCall(`/api/messages/${userId}`),
+  
+  // Get conversations for current user
+  getConversations: () => apiCall('/api/conversations'),
+  
+  // Mark message as read
+  markMessageAsRead: (messageId: string) => apiCall(`/api/messages/${messageId}/read`, {
+    method: 'PUT',
+  }),
+  
+  // Get unread messages count
+  getUnreadCount: () => apiCall('/api/messages/unread-count'),
+  
+  // Admin-specific endpoints
+  adminDeleteMessage: (messageId: string) => apiCall(`/api/admin/messages/${messageId}`, {
+    method: 'DELETE',
+  }),
+};

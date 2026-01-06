@@ -102,6 +102,7 @@ export interface IStorage {
   getConversationsForUser(userId: string): Promise<any[]>;
   markMessageAsRead(messageId: string): Promise<void>;
   getUnreadMessagesCount(userId: string): Promise<number>;
+  deleteMessage(id: string, userId: string | null): Promise<boolean>;
   
   // News operations
   createNews(newsData: any): Promise<any>;
@@ -2182,6 +2183,29 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error getting unread messages count:", error);
       return 0;
+    }
+  }
+  
+  async deleteMessage(id: string, userId: string | null): Promise<boolean> {
+    try {
+      // Get the message to check if it exists
+      const message = await db.select().from(messages).where(eq(messages.id, id));
+      if (!message.length) {
+        return false; // Message not found
+      }
+      
+      // If userId is provided, verify it's the sender (for regular users)
+      // If userId is null, allow deletion (for admin/moderators)
+      if (userId !== null && message[0].senderId !== userId) {
+        return false; // Not the sender and not an admin action
+      }
+      
+      // Delete the message
+      await db.delete(messages).where(eq(messages.id, id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      throw error;
     }
   }
   

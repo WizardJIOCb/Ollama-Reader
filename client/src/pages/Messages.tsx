@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Send, User, MessageCircle, Users, Plus, Hash, Settings, X as XIcon, Share2 } from 'lucide-react';
+import { Search, Send, User, MessageCircle, Users, Plus, Hash, Settings, X as XIcon, Share2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { joinConversation, leaveConversation, onSocketEvent, startTyping, stopTyping, joinChannel, leaveChannel } from '@/lib/socket';
 import { GroupCreationDialog } from '@/components/GroupCreationDialog';
 import { GroupSettingsPanel } from '@/components/GroupSettingsPanel';
@@ -70,6 +71,7 @@ export default function Messages() {
   const { toast } = useToast();
   const [location] = useLocation();
   const { t } = useTranslation(['messages']);
+  const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -89,6 +91,7 @@ export default function Messages() {
   const [activeTab, setActiveTab] = useState<'private' | 'groups'>('private');
   const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
   const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -914,7 +917,9 @@ export default function Messages() {
     <>
       <div className="flex h-[calc(100vh-4rem)] bg-background">
       {/* Left Panel - Conversations List */}
-      <div className="w-80 border-r flex flex-col">
+      <div className={`w-full md:w-80 border-r flex flex-col ${
+        isMobile && showMobileChat ? 'hidden' : 'flex'
+      }`}>
         <div className="p-4 border-b space-y-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'groups')} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -1022,7 +1027,10 @@ export default function Messages() {
                   className={`p-4 border-b cursor-pointer hover:bg-muted transition-colors ${
                     selectedConversation?.id === conv.id ? 'bg-muted' : ''
                   }`}
-                  onClick={() => setSelectedConversation(conv)}
+                  onClick={() => {
+                    setSelectedConversation(conv);
+                    if (isMobile) setShowMobileChat(true);
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <Avatar>
@@ -1064,6 +1072,7 @@ export default function Messages() {
                     const fullGroupDetails = await fetchGroupDetails(group.id);
                     if (fullGroupDetails) {
                       setSelectedGroup(fullGroupDetails);
+                      if (isMobile) setShowMobileChat(true);
                     }
                   }}
                 >
@@ -1087,12 +1096,27 @@ export default function Messages() {
       </div>
 
       {/* Right Panel - Chat Display */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${
+        isMobile && !showMobileChat ? 'hidden' : 'flex'
+      }`}>
         {selectedConversation ? (
           <>
             {/* Private Chat Header */}
             <div className="p-4 border-b flex items-center justify-between">
               <div className="flex items-center gap-3">
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setShowMobileChat(false);
+                      setSelectedConversation(null);
+                    }}
+                    className="mr-2"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                )}
                 <Avatar>
                   <AvatarImage src={selectedConversation.otherUser?.avatarUrl || undefined} />
                   <AvatarFallback>
@@ -1212,6 +1236,20 @@ export default function Messages() {
             {/* Group Chat Header */}
             <div className="p-4 border-b">
               <div className="flex items-start gap-3">
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setShowMobileChat(false);
+                      setSelectedGroup(null);
+                      setSelectedChannel(null);
+                    }}
+                    className="mr-2 flex-shrink-0"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                )}
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <Users className="w-5 h-5 text-primary" />
                 </div>

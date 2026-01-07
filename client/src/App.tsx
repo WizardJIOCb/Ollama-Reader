@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -20,6 +20,7 @@ import AdminDashboard from "@/components/AdminDashboard";
 import UserManagement from "@/pages/UserManagement";
 import Messages from "@/pages/Messages";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
 import { initializeSocket, disconnectSocket } from "@/lib/socket";
 
@@ -47,6 +48,11 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  
+  // Check if current page is reader (don't show footer on reader)
+  const isReaderPage = location.startsWith('/read/');
+  
   // Initialize WebSocket connection when user is authenticated
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -63,9 +69,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Navbar />
-        <Router />
+        <div className="flex flex-col min-h-screen">
+          <Toaster />
+          <Navbar />
+          <main className="flex-1">
+            <Router />
+          </main>
+          {!isReaderPage && <Footer />}
+        </div>
       </TooltipProvider>
     </QueryClientProvider>
   );

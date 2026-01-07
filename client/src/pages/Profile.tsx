@@ -635,9 +635,9 @@ export default function Profile() {
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header Navigation */}
-        <header className="flex items-center mb-8">
+        <header className="mb-8">
           {isOwnProfile && (
-            <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -650,15 +650,15 @@ export default function Profile() {
                 size="sm" 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarUploading}
-                className="gap-2"
+                className="gap-2 w-full md:w-auto"
               >
                 <Camera className="w-4 h-4" />
                 {avatarUploading ? t('common:uploading') : profile.avatar ? t('profile:changeAvatar') : t('profile:uploadAvatar')}
               </Button>
-              <Button variant="outline" size="sm" onClick={handleEditProfile}>
+              <Button variant="outline" size="sm" onClick={handleEditProfile} className="w-full md:w-auto">
                 {t('profile:editProfile')}
               </Button>
-              <Button variant="outline" size="sm" className="gap-2 cursor-pointer" onClick={handleShareProfile}>
+              <Button variant="outline" size="sm" className="gap-2 cursor-pointer w-full md:w-auto" onClick={handleShareProfile}>
                 <Share2 className="w-4 h-4" />
                 {t('profile:shareProfile')}
               </Button>

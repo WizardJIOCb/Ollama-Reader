@@ -3,6 +3,13 @@ import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import NewsManagement from '@/components/NewsManagement';
 import CommentsModeration from '@/components/CommentsModeration';
 import ReviewsModeration from '@/components/ReviewsModeration';
@@ -16,13 +23,17 @@ import {
   Users,
   BookOpen,
   LogOut,
-  User
+  User,
+  Menu
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const AdminDashboard: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dashboardStats, setDashboardStats] = useState({
     totalNews: 0,
     totalComments: 0,
@@ -366,10 +377,43 @@ const AdminDashboard: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
+              {isMobile && (
+                <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Menu className="w-5 h-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-64">
+                    <SheetHeader>
+                      <SheetTitle>Admin Navigation</SheetTitle>
+                    </SheetHeader>
+                    <nav className="mt-6">
+                      <ul className="space-y-1">
+                        {menuItems.map((item) => (
+                          <li key={item.id}>
+                            <Button
+                              variant={activeTab === item.id ? 'secondary' : 'ghost'}
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setActiveTab(item.id);
+                                setMobileMenuOpen(false);
+                              }}
+                            >
+                              <item.icon className="w-4 h-4 mr-2" />
+                              {item.label}
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </nav>
+                  </SheetContent>
+                </Sheet>
+              )}
               <h1 className="text-xl font-bold">Admin Dashboard</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground hidden sm:block">
                 Welcome, {user?.fullName || user?.username}
               </span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -382,28 +426,30 @@ const AdminDashboard: React.FC = () => {
       </nav>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r bg-card min-h-screen">
-          <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">Navigation</h2>
-            <nav>
-              <ul className="space-y-1">
-                {menuItems.map((item) => (
-                  <li key={item.id}>
-                    <Button
-                      variant={activeTab === item.id ? 'secondary' : 'ghost'}
-                      className="w-full justify-start"
-                      onClick={() => setActiveTab(item.id)}
-                    >
-                      <item.icon className="w-4 h-4 mr-2" />
-                      {item.label}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </div>
-        </aside>
+        {/* Sidebar - Hidden on mobile */}
+        {!isMobile && (
+          <aside className="w-64 border-r bg-card min-h-screen">
+            <div className="p-4">
+              <h2 className="text-lg font-semibold mb-4">Navigation</h2>
+              <nav>
+                <ul className="space-y-1">
+                  {menuItems.map((item) => (
+                    <li key={item.id}>
+                      <Button
+                        variant={activeTab === item.id ? 'secondary' : 'ghost'}
+                        className="w-full justify-start"
+                        onClick={() => setActiveTab(item.id)}
+                      >
+                        <item.icon className="w-4 h-4 mr-2" />
+                        {item.label}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </div>
+          </aside>
+        )}
 
         {/* Main Content */}
         <main className="flex-1 p-8">

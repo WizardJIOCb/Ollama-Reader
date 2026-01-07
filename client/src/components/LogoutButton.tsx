@@ -16,9 +16,10 @@ export function LogoutButton() {
 
   return (
     <Button 
-      variant="outline" 
+      variant="outline"
+      size="sm"
       onClick={handleLogout}
-      className="w-full sm:w-auto"
+      className="w-full md:w-auto"
     >
       {t('common:logout')}
     </Button>

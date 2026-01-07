@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { mockUser } from '@/lib/mockData';
-import { Plus, Search, Book as BookIcon, User, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Book as BookIcon, User, MoreHorizontal, Edit, Trash2, Library, BookPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -297,16 +297,16 @@ export default function Shelves() {
             
             <Link href="/add-book">
               <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('shelves:newBook')}</span>
+                <BookPlus className="w-4 h-4" />
+                <span className="sm:inline">{t('shelves:newBook')}</span>
               </Button>
             </Link>
             
             <Dialog open={isAddShelfOpen} onOpenChange={setIsAddShelfOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('shelves:newShelf')}</span>
+                  <Library className="w-4 h-4" />
+                  <span className="sm:inline">{t('shelves:newShelf')}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>

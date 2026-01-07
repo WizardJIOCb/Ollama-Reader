@@ -195,6 +195,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           )}
         </div>
         
+        {/* TODO: Restore when reader module is fully implemented
         {readingProgress && (
           <div className="mt-3">
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -208,6 +209,7 @@ export const BookCard: React.FC<BookCardProps> = ({
             </div>
           </div>
         )}
+        */}
       </CardContent>
       
       <CardFooter className="flex flex-col gap-2">

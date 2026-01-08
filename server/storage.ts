@@ -1482,7 +1482,8 @@ export class DBStorage implements IStorage {
         updatedAt: comments.updatedAt,
         attachmentMetadata: comments.attachmentMetadata,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
@@ -1498,6 +1499,7 @@ export class DBStorage implements IStorage {
         createdAt: comment.createdAt.toISOString(),
         updatedAt: comment.updatedAt.toISOString(),
         author: comment.fullName || comment.username || 'Anonymous',
+        avatarUrl: comment.avatarUrl || null,
         attachmentMetadata: comment.attachmentMetadata
       };
     } catch (error) {
@@ -1671,7 +1673,8 @@ export class DBStorage implements IStorage {
         updatedAt: reviews.updatedAt,
         attachmentMetadata: reviews.attachmentMetadata,
         username: users.username,
-        fullName: users.fullName
+        fullName: users.fullName,
+        avatarUrl: users.avatarUrl
       })
       .from(reviews)
       .leftJoin(users, eq(reviews.userId, users.id))
@@ -1693,6 +1696,7 @@ export class DBStorage implements IStorage {
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
         author: review.fullName || review.username || 'Anonymous',
+        avatarUrl: review.avatarUrl || null,
         attachmentMetadata: review.attachmentMetadata
       };
     } catch (error) {

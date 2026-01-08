@@ -34,7 +34,7 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
       for (const attachment of attachments) {
         if (attachment.mimeType && attachment.mimeType.startsWith('image/')) {
           try {
-            // Use thumbnail if available, otherwise full image
+            // Use thumbnail if available for preview, otherwise full image
             let imageUrl = attachment.thumbnailUrl || attachment.url;
             console.log('🖼️ [AttachmentDisplay] Loading image URL:', imageUrl);
             
@@ -109,23 +109,58 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
   const images = attachments.filter(a => a.mimeType && a.mimeType.startsWith('image/'));
   const documents = attachments.filter(a => a.mimeType && !a.mimeType.startsWith('image/'));
 
+  // Helper function to load full-size image
+  const loadFullSizeImage = async (image: Attachment) => {
+    let fullImageUrl = image.url;
+    
+    // Handle localhost URLs
+    if (fullImageUrl.startsWith('http://localhost') || fullImageUrl.startsWith('https://localhost')) {
+      const url = new URL(fullImageUrl);
+      fullImageUrl = url.pathname;
+    }
+    
+    // If it's already a blob or absolute URL, use directly
+    if (fullImageUrl.startsWith('blob:') || fullImageUrl.startsWith('http://') || fullImageUrl.startsWith('https://')) {
+      return fullImageUrl;
+    }
+    
+    // Fetch full-size image with authentication
+    try {
+      const fullUrl = getFileUrl(fullImageUrl);
+      const response = await fetch(fullUrl, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch (error) {
+      console.error('Failed to load full-size image:', error);
+    }
+    
+    return fullImageUrl;
+  };
+
   // Navigate to previous image
-  const goToPrevious = () => {
+  const goToPrevious = async () => {
     if (currentImageIndex > 0) {
       const newIndex = currentImageIndex - 1;
       setCurrentImageIndex(newIndex);
-      const displayUrl = imageUrls.get(images[newIndex].url);
-      setLightboxImage(displayUrl || images[newIndex].url);
+      const fullImageUrl = await loadFullSizeImage(images[newIndex]);
+      setLightboxImage(fullImageUrl);
     }
   };
 
   // Navigate to next image
-  const goToNext = () => {
+  const goToNext = async () => {
     if (currentImageIndex < images.length - 1) {
       const newIndex = currentImageIndex + 1;
       setCurrentImageIndex(newIndex);
-      const displayUrl = imageUrls.get(images[newIndex].url);
-      setLightboxImage(displayUrl || images[newIndex].url);
+      const fullImageUrl = await loadFullSizeImage(images[newIndex]);
+      setLightboxImage(fullImageUrl);
     }
   };
 
@@ -206,10 +241,10 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
               <div
                 key={index}
                 className="relative cursor-pointer rounded-lg overflow-hidden inline-block"
-                onClick={() => {
-                  const displayUrl = imageUrls.get(image.url);
+                onClick={async () => {
                   setCurrentImageIndex(index);
-                  setLightboxImage(displayUrl || image.url);
+                  const fullImageUrl = await loadFullSizeImage(image);
+                  setLightboxImage(fullImageUrl);
                 }}
               >
                 {displayUrl ? (

@@ -35,14 +35,30 @@ export function AttachmentDisplay({ attachments, className = '' }: AttachmentDis
         if (attachment.mimeType && attachment.mimeType.startsWith('image/')) {
           try {
             // Use thumbnail if available, otherwise full image
-            const imageUrl = attachment.thumbnailUrl || attachment.url;
+            let imageUrl = attachment.thumbnailUrl || attachment.url;
             console.log('🖼️ [AttachmentDisplay] Loading image URL:', imageUrl);
             
-            // If it's already a blob URL or absolute URL, use it directly
-            if (imageUrl.startsWith('blob:') || imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              console.log('🖼️ [AttachmentDisplay] Using direct URL:', imageUrl);
+            // Handle localhost URLs by stripping them to relative paths
+            // This fixes production issue where localhost URLs were stored during development
+            if (imageUrl.startsWith('http://localhost') || imageUrl.startsWith('https://localhost')) {
+              // Extract the path portion after the domain and port
+              const url = new URL(imageUrl);
+              imageUrl = url.pathname;
+              console.log('🔧 [AttachmentDisplay] Stripped localhost URL to relative path:', imageUrl);
+            }
+            
+            // If it's a blob URL, use it directly
+            if (imageUrl.startsWith('blob:')) {
+              console.log('🖼️ [AttachmentDisplay] Using blob URL directly:', imageUrl);
               newUrls.set(attachment.url, imageUrl);
-            } else {
+            }
+            // If it's an absolute URL (but not localhost), use it directly
+            else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+              console.log('🖼️ [AttachmentDisplay] Using absolute URL directly:', imageUrl);
+              newUrls.set(attachment.url, imageUrl);
+            }
+            // For relative paths, fetch with authentication
+            else {
               // Fetch the image with authentication and create a blob URL
               const fullUrl = getFileUrl(imageUrl);
               console.log('🖼️ [AttachmentDisplay] Fetching authenticated image:', fullUrl);

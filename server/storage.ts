@@ -342,11 +342,9 @@ export class DBStorage implements IStorage {
           // For TXT files, we'll search the content
           const fs = await import('fs');
           const path = await import('path');
-          const { fileURLToPath } = await import('url');
           
-          // Get __dirname equivalent for ES modules
-          const __filename = fileURLToPath(import.meta.url);
-          const __dirname = path.dirname(__filename);
+          // Use process.cwd() which works in both CommonJS and ESM contexts
+          const projectRoot = process.cwd();
           
           for (const book of allBooks) {
             // Check if this book has a TXT file
@@ -358,7 +356,7 @@ export class DBStorage implements IStorage {
                   fullPath = book.filePath;
                 } else {
                   // For relative paths, construct from the project root
-                  fullPath = path.join(__dirname, '../../..', book.filePath);
+                  fullPath = path.join(projectRoot, book.filePath);
                 }
                 
                 // Check if file exists

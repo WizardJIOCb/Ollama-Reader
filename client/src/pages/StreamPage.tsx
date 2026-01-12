@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Bell } from "lucide-react";
 import { getSocket } from "@/lib/socket";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 
 interface Activity {
   id: string;
@@ -31,6 +32,7 @@ export default function StreamPage() {
   const { t } = useTranslation(['stream', 'navigation']);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'global' | 'personal' | 'shelves'>('global');
   const [filters, setFilters] = useState<ShelfFiltersData>({ selectedShelf: null, selectedBooks: [] });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -214,8 +216,10 @@ export default function StreamPage() {
         return [activity, ...oldData];
       });
       
-      // Personal stream - update if there's a target user and it matches current user
-      if (activity.targetUserId) {
+      // Personal stream - update if activity was created by current user
+      // Personal stream shows user's own activities (their comments, reviews, news, books)
+      if (currentUser && activity.userId === currentUser.id) {
+        console.log('[STREAM] Adding activity to personal stream - created by current user');
         queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], (oldData = []) => {
           if (oldData.some(a => a.id === activity.id)) {
             return oldData;
@@ -369,7 +373,7 @@ export default function StreamPage() {
       }
       // Note: We don't leave global room - it stays active throughout the session
     };
-  }, [activeTab, isAuthenticated, queryClient, filters, toast, t]);
+  }, [activeTab, isAuthenticated, queryClient, filters, toast, t, currentUser]);
 
   // Handle tab change
   const handleTabChange = useCallback((value: string) => {
@@ -403,12 +407,12 @@ export default function StreamPage() {
           <TabsTrigger value="global">
             {t('stream:globalTab')}
           </TabsTrigger>
+          <TabsTrigger value="shelves" disabled={!isAuthenticated}>
+            {t('stream:myShelvesTab')}
+          </TabsTrigger>
           <TabsTrigger value="personal" disabled={!isAuthenticated}>
             <Bell className="w-4 h-4 mr-2" />
             {t('stream:myTab')}
-          </TabsTrigger>
-          <TabsTrigger value="shelves" disabled={!isAuthenticated}>
-            {t('stream:myShelvesTab')}
           </TabsTrigger>
         </TabsList>
 
@@ -429,31 +433,6 @@ export default function StreamPage() {
               ))
             )}
           </div>
-        </TabsContent>
-
-        {/* Personal Stream Tab */}
-        <TabsContent value="personal" className="mt-0">
-          {!isAuthenticated ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {t('stream:authRequired')}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Loading...
-                </div>
-              ) : currentActivities.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {t('stream:noActivities')}
-                </div>
-              ) : (
-                currentActivities.map((activity) => (
-                  <ActivityCard key={activity.id} activity={activity} />
-                ))
-              )}
-            </div>
-          )}
         </TabsContent>
 
         {/* Shelf Stream Tab */}
@@ -484,6 +463,31 @@ export default function StreamPage() {
                   ))
                 )}
               </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Personal Stream Tab */}
+        <TabsContent value="personal" className="mt-0">
+          {!isAuthenticated ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {t('stream:authRequired')}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading...
+                </div>
+              ) : currentActivities.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {t('stream:noActivities')}
+                </div>
+              ) : (
+                currentActivities.map((activity) => (
+                  <ActivityCard key={activity.id} activity={activity} />
+                ))
+              )}
             </div>
           )}
         </TabsContent>

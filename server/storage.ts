@@ -230,6 +230,7 @@ export interface IStorage {
   createUserAction(actionData: any): Promise<any>;
   getLastActions(limit: number, offset: number): Promise<any[]>;
   cleanupOldActions(daysToKeep: number): Promise<void>;
+  deleteUserAction(id: string): Promise<boolean>;
   
   // Channel read position operations
   upsertChannelReadPosition(userId: string, channelId: string): Promise<void>;
@@ -5096,6 +5097,38 @@ export class DBStorage implements IStorage {
       console.log(`Cleaned up user actions older than ${daysToKeep} days`);
     } catch (error) {
       console.error("Error cleaning up old actions:", error);
+    }
+  }
+  
+  async deleteUserAction(id: string): Promise<boolean> {
+    try {
+      // Check if user action exists and is not already deleted
+      const existingAction = await db
+        .select()
+        .from(userActions)
+        .where(
+          and(
+            eq(userActions.id, id),
+            isNull(userActions.deletedAt)
+          )
+        );
+      
+      if (existingAction.length === 0) {
+        console.log(`User action not found or already deleted: ${id}`);
+        return false;
+      }
+      
+      // Soft delete the user action
+      await db
+        .update(userActions)
+        .set({ deletedAt: new Date() })
+        .where(eq(userActions.id, id));
+      
+      console.log(`User action soft-deleted: ${id}`);
+      return true;
+    } catch (error) {
+      console.error("Error deleting user action:", error);
+      return false;
     }
   }
   

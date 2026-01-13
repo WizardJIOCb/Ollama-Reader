@@ -73,9 +73,23 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
   const handleDelete = async () => {
     if (isDeleting) return;
     
+    // Use entityId if available, fallback to id
+    const deleteId = activity.entityId || activity.id;
+    
+    if (!deleteId) {
+      console.error('[LastActionsActivityCard] No valid ID for deletion', activity);
+      toast({
+        title: t('stream:error'),
+        description: 'Invalid activity ID',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/stream/activities/${activity.entityId}`, {
+      console.log('[LastActionsActivityCard] Deleting action with ID:', deleteId);
+      const response = await fetch(`/api/stream/activities/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -83,7 +97,9 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete action');
+        const errorText = await response.text();
+        console.error('[LastActionsActivityCard] Delete failed:', errorText);
+        throw new Error(`Failed to delete action: ${errorText}`);
       }
 
       // Optimistically remove from Last Actions cache
@@ -91,19 +107,33 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
         if (!oldData) return oldData;
         return {
           ...oldData,
-          activities: oldData.activities.filter((a: any) => a.id !== activity.id)
+          activities: oldData.activities.filter((a: any) => a.id !== activity.id && a.entityId !== deleteId)
         };
       });
+      
+      // Also remove from global cache (user actions may appear there)
+      queryClient.setQueryData<any>(['api', 'stream', 'global'], (oldData: any) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.filter((a: any) => a.id !== activity.id && a.entityId !== deleteId);
+      });
+      
+      // Remove from personal stream cache if user's own action
+      if (currentUser && activity.userId === currentUser.id) {
+        queryClient.setQueryData<any>(['api', 'stream', 'personal'], (oldData: any) => {
+          if (!Array.isArray(oldData)) return oldData;
+          return oldData.filter((a: any) => a.id !== activity.id && a.entityId !== deleteId);
+        });
+      }
 
       toast({
         title: t('stream:activityDeleted'),
         description: t('stream:activityDeletedDescription')
       });
     } catch (error) {
-      console.error('Error deleting action:', error);
+      console.error('[LastActionsActivityCard] Error deleting action:', error);
       toast({
         title: t('stream:error'),
-        description: t('stream:deleteError'),
+        description: error instanceof Error ? error.message : t('stream:deleteError'),
         variant: 'destructive'
       });
     } finally {
@@ -115,6 +145,12 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
   const getActionTypeLabel = () => {
     // For navigation actions, show translated action text
     const actionText = t(`stream:actionTypes.${activity.action_type}`, activity.action_type);
+    
+    // For group messages, remove the trailing " в" or " in" from the bold text
+    if (activity.action_type === 'send_group_message') {
+      return actionText.replace(/ в$/, '').replace(/ in$/, '');
+    }
+    
     return actionText;
   };
 
@@ -155,8 +191,9 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
       return null;
     }
 
-    const actionText = t(`stream:actionTypes.${activity.action_type}`, activity.action_type);
-
+    // For group messages, we need special handling to add the preposition
+    const isGroupMessage = activity.action_type === 'send_group_message';
+    
     // Build target link and display name
     let targetLink = '#';
     let targetName = '';
@@ -180,6 +217,22 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
         break;
     }
 
+    // For group messages, show "в [group name]" without repeating the action text
+    if (isGroupMessage) {
+      return (
+        <span className="text-sm">
+          <span className="text-muted-foreground">{t('stream:in')} </span>
+          <Link href={targetLink}>
+            <span className="text-primary hover:underline cursor-pointer font-medium">
+              {targetName}
+            </span>
+          </Link>
+        </span>
+      );
+    }
+
+    // For other actions with targets, show the full action text
+    const actionText = t(`stream:actionTypes.${activity.action_type}`, activity.action_type);
     return (
       <span className="text-sm">
         <span className="text-muted-foreground">{actionText} </span>
@@ -265,7 +318,9 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
             </Link>
             {renderActionDescription() && (
               <>
-                <span className="text-muted-foreground">·</span>
+                {activity.action_type !== 'send_group_message' && (
+                  <span className="text-muted-foreground">·</span>
+                )}
                 {renderActionDescription()}
               </>
             )}

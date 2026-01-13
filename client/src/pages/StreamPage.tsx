@@ -62,6 +62,9 @@ export default function StreamPage() {
     // Always invalidate global stream as it's visible to all users
     queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'global'] });
     
+    // Always invalidate last actions to show recent navigation
+    queryClient.invalidateQueries({ queryKey: ['api', 'stream', 'last-actions'] });
+    
     // Invalidate personal stream if authenticated and on personal tab
     if (isAuthenticated && activeTab === 'personal') {
       console.log('[STREAM PAGE] Invalidating personal stream cache');
@@ -130,6 +133,8 @@ export default function StreamPage() {
       return await response.json();
     },
     enabled: activeTab === 'last-actions',
+    staleTime: 30000, // Consider data stale after 30 seconds
+    refetchOnWindowFocus: true, // Refetch when user returns to browser tab
   });
   
   const lastActions = lastActionsData?.activities || [];
@@ -171,6 +176,15 @@ export default function StreamPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [activeTab, isAuthenticated, refetchGlobal, refetchPersonal, refetchShelf, refetchLastActions]);
+  
+  // Refetch last actions when switching to that tab
+  // This ensures fresh data after navigating away and back
+  useEffect(() => {
+    if (activeTab === 'last-actions') {
+      console.log('[STREAM PAGE] Switched to Last Actions tab, refetching data...');
+      refetchLastActions();
+    }
+  }, [activeTab, refetchLastActions]);
 
   // WebSocket connection and event handlers
   useEffect(() => {
@@ -311,16 +325,26 @@ export default function StreamPage() {
       console.log('[STREAM] Activity deleted:', data);
       
       // Remove the activity from all query caches
+      // Check both entityId and id fields to handle both regular activities and user actions
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], (oldData = []) => {
-        return oldData.filter(a => a.entityId !== data.entityId);
+        return oldData.filter(a => a.entityId !== data.entityId && a.id !== data.entityId);
       });
       
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], (oldData = []) => {
-        return oldData.filter(a => a.entityId !== data.entityId);
+        return oldData.filter(a => a.entityId !== data.entityId && a.id !== data.entityId);
       });
       
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'shelves', filters], (oldData = []) => {
-        return oldData.filter(a => a.entityId !== data.entityId);
+        return oldData.filter(a => a.entityId !== data.entityId && a.id !== data.entityId);
+      });
+      
+      // Also remove from last-actions cache
+      queryClient.setQueryData<any>(['api', 'stream', 'last-actions'], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          activities: (oldData.activities || []).filter((a: any) => a.entityId !== data.entityId && a.id !== data.entityId)
+        };
       });
     };
 

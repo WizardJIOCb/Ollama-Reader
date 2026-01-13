@@ -4922,6 +4922,26 @@ export async function registerRoutes(
         }
       }
       
+      // Check if it's a user action
+      const userActionDeleted = await storage.deleteUserAction(entityId);
+      if (userActionDeleted) {
+        console.log("Deleted user action:", entityId);
+        
+        // Broadcast deletion via WebSocket to both global and last-actions rooms
+        try {
+          if ((app as any).io) {
+            const io = (app as any).io;
+            console.log('[STREAM] Broadcasting user action deletion from stream:', entityId);
+            io.to('stream:global').emit('stream:activity-deleted', { entityId });
+            io.to('stream:last-actions').emit('stream:activity-deleted', { entityId });
+          }
+        } catch (streamError) {
+          console.error('[STREAM] Failed to broadcast user action deletion:', streamError);
+        }
+        
+        return res.json({ success: true, type: 'user_action' });
+      }
+      
       // Entity not found in any table
       console.log("Entity not found:", entityId);
       return res.status(404).json({ error: "Entity not found" });

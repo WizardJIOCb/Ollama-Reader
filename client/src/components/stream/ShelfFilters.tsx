@@ -159,32 +159,30 @@ export function ShelfFilters({ filters, onFilterChange, activityTypeFilters, onA
           </div>
         </CardHeader>
         <CollapsibleContent>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {/* Activity type checkboxes */}
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {availableTypes.map((type) => (
-                  <div key={type} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`shelf-activity-type-${type}`}
-                      checked={activityTypeFilters.includes(type)}
-                      onCheckedChange={() => handleActivityTypeToggle(type)}
-                      disabled={activityTypeFilters.length === 1 && activityTypeFilters.includes(type)}
-                    />
-                    <Label
-                      htmlFor={`shelf-activity-type-${type}`}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {t(`stream:activityTypeFilter.${type}`)}
-                    </Label>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:flex md:flex-wrap">
+              {availableTypes.map((type) => (
+                <div key={type} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`shelf-activity-type-${type}`}
+                    checked={activityTypeFilters.includes(type)}
+                    onCheckedChange={() => handleActivityTypeToggle(type)}
+                    disabled={activityTypeFilters.length === 1 && activityTypeFilters.includes(type)}
+                  />
+                  <Label
+                    htmlFor={`shelf-activity-type-${type}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {t(`stream:activityTypeFilter.${type}`)}
+                  </Label>
+                </div>
+              ))}
             </div>
             
             {/* Hide My Actions Toggle */}
             {showHideMyActions && onHideMyActionsChange && (
-              <div className="space-y-2">
+              <div className="pt-2 border-t">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="shelf-hide-my-actions"

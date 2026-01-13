@@ -602,12 +602,12 @@ export default function StreamPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-3">
+      <div className="mb-3 text-center sm:text-left">
         <h1 className="text-3xl font-bold mb-2">{t('stream:title')}</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+        <TabsList className="flex flex-col gap-2 sm:grid sm:grid-cols-4 w-full mb-6 h-auto sm:h-9 bg-transparent sm:bg-muted p-0 sm:p-1">
           <TabsTrigger value="global">
             {t('stream:globalTab')}
           </TabsTrigger>

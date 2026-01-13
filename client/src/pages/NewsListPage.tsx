@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { apiCall } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDate } from '@/lib/dateUtils';
@@ -104,8 +104,9 @@ export default function NewsListPage() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <Link href="/">
-          <Button variant="ghost" className="mb-4">
-            {t('common:back')}
+          <Button variant="ghost" className="mb-4 -ml-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {t('common:backToHome')}
           </Button>
         </Link>
         <h1 className="text-3xl font-bold">{t('common:news')}</h1>

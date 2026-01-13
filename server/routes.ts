@@ -1044,10 +1044,11 @@ export async function registerRoutes(
         emoji
       });
       
-      console.log("Created reaction with ID:", reaction.id);
+      console.log("Reaction result:", reaction);
       
       // Get all reactions for this news item and aggregate them
       const allReactions = await storage.getReactionsForNews(id);
+      console.log("All reactions after toggle:", allReactions);
       
       // Group and aggregate reactions by emoji
       const groupedReactions: Record<string, any[]> = {};
@@ -1069,6 +1070,8 @@ export async function registerRoutes(
           userReacted
         });
       });
+      
+      console.log("Aggregated reactions to return:", aggregatedReactions);
       
       // Broadcast reaction update and counter update for the news item
       try {

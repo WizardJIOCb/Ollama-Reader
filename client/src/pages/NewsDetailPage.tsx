@@ -187,41 +187,19 @@ const NewsDetailPage: React.FC = () => {
 
       if (response.ok) {
         const result = await response.json();
+        console.log('[NewsDetail] Reaction response:', result);
         
-        // Update the news item reaction count
-        if (newsItem) {
-          if (result.action === 'added') {
+        // Use aggregated reactions from server instead of local calculation
+        if (result.reactions) {
+          setReactions(result.reactions);
+          
+          // Calculate total reaction count from aggregated data
+          const totalCount = result.reactions.reduce((sum: number, r: any) => sum + r.count, 0);
+          
+          if (newsItem) {
             setNewsItem({
               ...newsItem,
-              reactionCount: newsItem.reactionCount + 1
-            });
-            
-            // Update local reactions state
-            setReactions(prev => {
-              const existingReaction = prev.find(r => r.emoji === emoji);
-              if (existingReaction) {
-                return prev.map(r => 
-                  r.emoji === emoji 
-                    ? { ...r, count: r.count + 1, userReacted: true } 
-                    : r
-                );
-              } else {
-                return [...prev, { emoji, count: 1, userReacted: true }];
-              }
-            });
-          } else {
-            setNewsItem({
-              ...newsItem,
-              reactionCount: Math.max(0, newsItem.reactionCount - 1)
-            });
-            
-            // Update local reactions state
-            setReactions(prev => {
-              return prev.map(r => 
-                r.emoji === emoji 
-                  ? { ...r, count: Math.max(0, r.count - 1), userReacted: false } 
-                  : r
-              );
+              reactionCount: totalCount
             });
           }
         }

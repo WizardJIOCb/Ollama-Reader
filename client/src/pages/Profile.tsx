@@ -837,12 +837,24 @@ export default function Profile() {
 
         {/* User's Shelves */}
         <section>
-          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
-            <LibraryIcon className="w-5 h-5 text-muted-foreground" />
-            {t('profile:shelves')}
-          </h2>
-          <div className="space-y-8">
-            {profile.shelves.map((shelf: ProfileShelf) => (
+          {(() => {
+            // Filter shelves based on profile ownership
+            // Show all shelves if viewing own profile, otherwise hide empty shelves
+            const filteredShelves = isOwnProfile 
+              ? profile.shelves 
+              : profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0);
+            
+            // Count non-empty shelves for the counter
+            const nonEmptyShelfCount = profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0).length;
+            
+            return (
+              <>
+                <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
+                  <LibraryIcon className="w-5 h-5 text-muted-foreground" />
+                  {t('profile:shelves')} [{nonEmptyShelfCount}]
+                </h2>
+                <div className="space-y-8">
+                  {filteredShelves.map((shelf: ProfileShelf) => (
               <div key={shelf.id} className="bg-card/50 border rounded-xl p-6">
                 <div className="flex items-baseline justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -865,8 +877,11 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </section>
       </div>
     </div>

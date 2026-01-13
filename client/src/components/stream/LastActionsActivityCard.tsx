@@ -196,6 +196,12 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
       return null;
     }
 
+    // For user_registered action type, suppress target description to avoid redundancy
+    // since the user is already shown in the user info section
+    if (activity.action_type === 'user_registered') {
+      return null;
+    }
+
     // For group messages, we need special handling to add the preposition
     const isGroupMessage = activity.action_type === 'send_group_message';
     

@@ -380,6 +380,37 @@ export default function StreamPage() {
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'global'], updateActivities);
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'personal'], updateActivities);
       queryClient.setQueryData<Activity[]>(['api', 'stream', 'shelves', filters], updateActivities);
+      
+      // Update Last Actions cache for reaction changes
+      queryClient.setQueryData<any>(['api', 'stream', 'last-actions'], (oldData: any) => {
+        if (!oldData || !oldData.activities) {
+          return oldData;
+        }
+        
+        return {
+          ...oldData,
+          activities: oldData.activities.map((activity: any) => {
+            // Match by entityId and entityType
+            const isMatch = 
+              (data.entityType === 'comment' && (activity.entityId === data.entityId || activity.id === data.commentId)) ||
+              (data.entityType === 'review' && activity.entityId === data.entityId) ||
+              (data.entityType === 'news' && activity.entityId === data.entityId && activity.type === 'news');
+            
+            if (isMatch) {
+              console.log('[STREAM] Updating Last Actions reactions for activity:', activity.id, 'with reactions:', data.reactions);
+              return {
+                ...activity,
+                metadata: {
+                  ...activity.metadata,
+                  reactions: data.reactions,
+                  reaction_count: data.reactions.reduce((sum: number, r: any) => sum + r.count, 0)
+                }
+              };
+            }
+            return activity;
+          })
+        };
+      });
     };
 
     const handleCounterUpdate = (data: { entityId: string; entityType: string; commentCount?: number; reactionCount?: number; viewCount?: number; reviewCount?: number }) => {

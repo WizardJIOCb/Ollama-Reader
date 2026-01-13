@@ -53,6 +53,9 @@ const NewsReactionsManagement: React.FC = () => {
       const response = await apiCall('/api/admin/news');
       const data = await response.json();
       
+      console.log('[NewsReactionsManagement] Fetched news items:', data);
+      console.log('[NewsReactionsManagement] First item structure:', data[0]);
+      
       setNewsItems(data);
       setError(null);
     } catch (err) {
@@ -122,33 +125,33 @@ const NewsReactionsManagement: React.FC = () => {
   };
 
   const handleDeleteReaction = async (reactionId: string) => {
-    if (!window.confirm('Are you sure you want to delete this reaction? This action cannot be undone.')) {
-      return;
-    }
-
     try {
+      console.log('[NewsReactionsManagement] Deleting reaction:', reactionId);
+      console.log('[NewsReactionsManagement] Before delete - selectedNews:', selectedNews);
+      console.log('[NewsReactionsManagement] Before delete - reactions count:', reactions.length);
+      
       await newsReactionsApi.deleteReaction(reactionId);
 
       // Remove the reaction from the local state
-      setReactions(prevReactions => 
-        prevReactions.filter(reaction => reaction.id !== reactionId)
-      );
+      setReactions(prevReactions => {
+        const updated = prevReactions.filter(reaction => reaction.id !== reactionId);
+        console.log('[NewsReactionsManagement] After delete - reactions count:', updated.length);
+        return updated;
+      });
       
-      // Update the reaction count in the selected news
+      // Refetch the news items to get updated reaction count from the server
+      await fetchNewsItems();
+      
+      // Also update the selected news if it's still selected
       if (selectedNews) {
-        setSelectedNews({
-          ...selectedNews,
-          reactionCount: Math.max(0, selectedNews.reactionCount - 1)
-        });
+        const response = await apiCall('/api/admin/news');
+        const updatedNews = await response.json();
+        const updatedSelectedNews = updatedNews.find((item: any) => item.id === selectedNews.id);
         
-        // Also update in the news list
-        setNewsItems(prevItems => 
-          prevItems.map(item => 
-            item.id === selectedNews.id 
-              ? { ...item, reactionCount: Math.max(0, item.reactionCount - 1) } 
-              : item
-          )
-        );
+        if (updatedSelectedNews) {
+          setSelectedNews(updatedSelectedNews);
+          console.log('[NewsReactionsManagement] Updated selected news reaction count:', updatedSelectedNews.reactionCount);
+        }
       }
       
       setError(null);
@@ -195,7 +198,7 @@ const NewsReactionsManagement: React.FC = () => {
               >
                 <h3 className="font-medium truncate">{newsItem.title}</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Reactions: {newsItem.reactionCount}
+                  Reactions: {newsItem.reactionCount ?? 'undefined'} (type: {typeof newsItem.reactionCount})
                 </p>
               </div>
             ))}

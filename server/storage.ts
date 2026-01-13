@@ -2130,14 +2130,27 @@ export class DBStorage implements IStorage {
         return false; // Reaction not found
       }
       
+      const reactionData = reaction[0];
+      
       // If userId is provided, verify it belongs to the user (for regular users)
       // If userId is null, allow deletion (for admin/moderators)
-      if (userId !== null && reaction[0].userId !== userId) {
+      if (userId !== null && reactionData.userId !== userId) {
         return false; // Not the owner and not an admin action
       }
       
       // Delete the reaction
       await db.delete(reactions).where(eq(reactions.id, id));
+      
+      // Update the reaction count in the news table if this was a news reaction
+      if (reactionData.newsId) {
+        await db.update(news)
+          .set({ 
+            reactionCount: sql`GREATEST(0, ${news.reactionCount} - 1)`,
+            updatedAt: new Date() 
+          })
+          .where(eq(news.id, reactionData.newsId));
+      }
+      
       return true;
     } catch (error) {
       console.error("Error deleting reaction:", error);
@@ -2965,6 +2978,9 @@ export class DBStorage implements IStorage {
         authorId: news.authorId,
         published: news.published,
         publishedAt: news.publishedAt,
+        viewCount: news.viewCount,
+        commentCount: news.commentCount,
+        reactionCount: news.reactionCount,
         createdAt: news.createdAt,
         updatedAt: news.updatedAt,
         username: users.username,
@@ -2983,6 +2999,9 @@ export class DBStorage implements IStorage {
         authorId: item.authorId,
         published: item.published,
         publishedAt: item.publishedAt?.toISOString() || null,
+        viewCount: item.viewCount,
+        commentCount: item.commentCount,
+        reactionCount: item.reactionCount,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
         author: item.fullName || item.username || 'Anonymous',

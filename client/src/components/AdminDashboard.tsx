@@ -371,8 +371,8 @@ const AdminDashboard: React.FC = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'news', label: 'News Management', icon: Newspaper },
-    { id: 'comments', label: 'Comments', icon: MessageSquare },
     { id: 'reactions', label: 'News Reactions', icon: Heart },
+    { id: 'comments', label: 'Comments', icon: MessageSquare },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'books', label: 'Books', icon: BookOpen },
     ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),

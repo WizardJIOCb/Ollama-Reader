@@ -37,6 +37,7 @@ export interface Book {
   createdAt?: string;   // ISO date string (fallback)
   updatedAt?: string;
   userId?: string;
+  reactions?: Reaction[]; // Aggregated reactions for the book
 }
 
 export interface Bookmark {

@@ -139,7 +139,7 @@ export const reviews = pgTable("reviews", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Table for reactions (likes, etc.) on comments, reviews, and news
+// Table for reactions (likes, etc.) on comments, reviews, news, and books
 export const reactions = pgTable("reactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
@@ -147,6 +147,7 @@ export const reactions = pgTable("reactions", {
   commentId: varchar("comment_id").references(() => comments.id),
   reviewId: varchar("review_id").references(() => reviews.id),
   newsId: varchar("news_id").references(() => news.id),
+  bookId: varchar("book_id").references(() => books.id),
   emoji: text("emoji").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

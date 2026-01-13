@@ -966,7 +966,7 @@ export async function registerRoutes(
       }
       
       // Get reactions for this comment
-      const reactions = await storage.getReactions(commentId, true); // true for comment reactions (not using getReactionsForItem)
+      const reactions = await storage.getReactions(commentId, 'comment');
       
       // Group and aggregate reactions by emoji
       const reactionsMap: Record<string, any[]> = {};
@@ -1035,7 +1035,7 @@ export async function registerRoutes(
       }
       
       // Get all reactions for this comment
-      const updatedReactions = await storage.getReactions(commentId, true);
+      const updatedReactions = await storage.getReactions(commentId, 'comment');
       
       // Group and aggregate reactions by emoji
       const groupedReactions: Record<string, any[]> = {};
@@ -1662,12 +1662,13 @@ export async function registerRoutes(
     console.log("Get book by ID endpoint called");
     try {
       const { id } = req.params;
+      const userId = (req as any).user?.userId;
       console.log(`Getting book with ID: ${id}`);
       if (!id) {
         return res.status(400).json({ error: "Book ID is required" });
       }
       
-      let book = await storage.getBook(id);
+      let book = await storage.getBook(id, userId);
       console.log(`Retrieved book:`, book);
       if (!book) {
         return res.status(404).json({ error: "Book not found" });
@@ -1678,7 +1679,7 @@ export async function registerRoutes(
         console.log(`Book ${id} has no rating, calculating...`);
         await storage.updateBookAverageRating(id);
         // Fetch the book again with the updated rating
-        book = await storage.getBook(id);
+        book = await storage.getBook(id, userId);
         console.log(`Book after rating calculation:`, book);
       }
       
@@ -1687,6 +1688,62 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get book by ID error:", error);
       res.status(500).json({ error: "Failed to get book" });
+    }
+  });
+
+  // Add reaction to a book
+  app.post("/api/books/:id/reactions", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { emoji } = req.body;
+      const userId = (req as any).user.userId;
+      
+      if (!emoji) {
+        return res.status(400).json({ error: "Emoji is required" });
+      }
+      
+      // Check if book exists
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Create or remove reaction (toggle)
+      const result = await storage.createReaction({
+        userId,
+        bookId: id,
+        emoji
+      });
+      
+      res.json({
+        action: result.created ? 'added' : 'removed',
+        reaction: result.reaction || null
+      });
+    } catch (error) {
+      console.error("Add book reaction error:", error);
+      res.status(500).json({ error: "Failed to add reaction" });
+    }
+  });
+
+  // Get reactions for a book
+  app.get("/api/books/:id/reactions", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.userId;
+      
+      // Check if book exists
+      const book = await storage.getBook(id);
+      if (!book) {
+        return res.status(404).json({ error: "Book not found" });
+      }
+      
+      // Get aggregated reactions
+      const reactions = await storage.getAggregatedBookReactions(id, userId);
+      
+      res.json(reactions);
+    } catch (error) {
+      console.error("Get book reactions error:", error);
+      res.status(500).json({ error: "Failed to get reactions" });
     }
   });
 
@@ -2355,7 +2412,7 @@ export async function registerRoutes(
       
       if (review) {
         // Get reactions for this review
-        const reactions = await storage.getReactions(review.id, false);
+        const reactions = await storage.getReactions(review.id, 'review');
         
         // Group and aggregate reactions by emoji
         const reactionsMap: Record<string, any[]> = {};
@@ -2563,7 +2620,7 @@ export async function registerRoutes(
           const entityType = commentId ? 'comment' : 'review';
           
           // Get all reactions for this comment/review
-          const updatedReactions = await storage.getReactions(entityId, !!commentId);
+          const updatedReactions = await storage.getReactions(entityId, entityType);
           
           // Group and aggregate reactions by emoji
           const groupedReactions: Record<string, any[]> = {};

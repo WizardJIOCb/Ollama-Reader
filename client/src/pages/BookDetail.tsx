@@ -60,6 +60,7 @@ interface Book {
   uploadedAt?: string;
   publishedAt?: string;
   lastActivityDate?: string;
+  reactions?: Reaction[]; // Added reactions field
 }
 
 // Define comment and review interfaces
@@ -131,6 +132,7 @@ export default function BookDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false); // Added state for delete operation
+  const [localReactions, setLocalReactions] = useState<Reaction[]>([]); // Added state for reactions
   
   // State for comments and reviews
   const [bookComments, setBookComments] = useState<Comment[]>([]);
@@ -247,6 +249,7 @@ export default function BookDetail() {
             
             const bookData = await bookResponse.json();
             setBook(bookData);
+            setLocalReactions(bookData.reactions || []); // Set reactions from book data
             
             // Fetch comments and reviews in a single call
             await fetchCommentsAndReviews();
@@ -286,6 +289,7 @@ export default function BookDetail() {
           
           const bookData = await bookResponse.json();
           setBook(bookData);
+          setLocalReactions(bookData.reactions || []); // Set reactions from book data
           
           // Fetch comments and reviews in a single call
           await fetchCommentsAndReviews();
@@ -684,6 +688,87 @@ export default function BookDetail() {
       setIsDeleting(false);
     }
   };
+
+  // Handle book reaction
+  const handleBookReact = async (emoji: string) => {
+    if (!user) {
+      toast({
+        title: t('books:error'),
+        description: t('books:loginRequired'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`/api/books/${book?.id}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ emoji }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Optimistically update local state
+        setLocalReactions(prev => {
+          const existingIndex = prev.findIndex(r => r.emoji === emoji);
+          
+          if (result.action === 'added') {
+            if (existingIndex >= 0) {
+              // Increment count and mark as user reacted
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                count: updated[existingIndex].count + 1,
+                userReacted: true
+              };
+              return updated;
+            } else {
+              // Add new reaction
+              return [...prev, { emoji, count: 1, userReacted: true }];
+            }
+          } else {
+            // Removed reaction
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              if (updated[existingIndex].count > 1) {
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  count: updated[existingIndex].count - 1,
+                  userReacted: false
+                };
+                return updated;
+              } else {
+                // Remove reaction completely
+                return prev.filter((_, i) => i !== existingIndex);
+              }
+            }
+          }
+          
+          return prev;
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add reaction');
+      }
+    } catch (err) {
+      console.error('Error adding book reaction:', err);
+      toast({
+        title: t('books:error'),
+        description: err instanceof Error ? err.message : t('books:failedToAddReaction'),
+        variant: "destructive",
+      });
+    }
+  };
   
   if (loading) {
     return (
@@ -789,6 +874,15 @@ export default function BookDetail() {
                       {g.trim()}
                     </Badge>
                   ))}
+                </div>
+                
+                {/* Book Reactions - after description and genres */}
+                <div className="mb-4">
+                  <ReactionBar 
+                    reactions={localReactions} 
+                    onReact={handleBookReact}
+                    bookId={book.id}
+                  />
                 </div>
               </CardHeader>
               

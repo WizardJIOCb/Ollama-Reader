@@ -119,7 +119,7 @@ export interface IStorage {
   
   // Book operations
   createBook(bookData: any): Promise<any>;
-  getBook(id: string): Promise<any | undefined>;
+  getBook(id: string, userId?: string): Promise<any | undefined>;
   searchBooks(query: string, sortBy?: string, sortDirection?: 'asc' | 'desc'): Promise<any[]>;
   deleteBook(id: string, userId: string): Promise<boolean>;
   getPopularBooks(sortBy?: string): Promise<any[]>;
@@ -170,9 +170,10 @@ export interface IStorage {
   
   // Reaction operations
   createReaction(reactionData: any): Promise<any>;
-  getReactions(commentOrReviewId: string, isComment: boolean): Promise<any[]>;
+  getReactions(entityId: string, entityType: 'comment' | 'review' | 'news' | 'book'): Promise<any[]>;
   getReactionsForItems(itemIds: string[], isComment: boolean): Promise<any[]>;
   deleteReaction(id: string, userId: string | null): Promise<boolean>;
+  getAggregatedBookReactions(bookId: string, userId?: string): Promise<any[]>;
   
   // Book view statistics operations
   incrementBookViewCount(bookId: string, viewType: string): Promise<any>;
@@ -280,7 +281,7 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async getBook(id: string): Promise<any | undefined> {
+  async getBook(id: string, userId?: string): Promise<any | undefined> {
     try {
       console.log(`Getting book with ID: ${id}`);
       const result = await db.select().from(books).where(eq(books.id, id));
@@ -305,6 +306,9 @@ export class DBStorage implements IStorage {
         // Get shelf count using raw SQL
         const shelfCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelf_books WHERE book_id = ${result[0].id}`);
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(id, userId);
+        
         // Format dates for the frontend
         const formattedBook = {
           ...result[0],
@@ -320,7 +324,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null
+          lastActivityDate: latestActivityResult.rows[0].latest_date ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString() : null,
+          reactions: reactions
         };
         console.log(`Formatted book ${id}:`, formattedBook);
         return formattedBook;
@@ -744,6 +749,9 @@ export class DBStorage implements IStorage {
           ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id);
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
@@ -751,7 +759,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: lastActivityDate
+          lastActivityDate: lastActivityDate,
+          reactions: reactions
         };
       }));
       
@@ -828,6 +837,9 @@ export class DBStorage implements IStorage {
           ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id);
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
@@ -835,7 +847,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: lastActivityDate
+          lastActivityDate: lastActivityDate,
+          reactions: reactions
         };
       }));
       
@@ -934,6 +947,9 @@ export class DBStorage implements IStorage {
           ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id);
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
@@ -941,7 +957,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: lastActivityDate
+          lastActivityDate: lastActivityDate,
+          reactions: reactions
         };
       }));
       
@@ -1034,6 +1051,9 @@ export class DBStorage implements IStorage {
           ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id);
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
@@ -1041,7 +1061,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: lastActivityDate
+          lastActivityDate: lastActivityDate,
+          reactions: reactions
         };
       }));
       
@@ -1120,6 +1141,9 @@ export class DBStorage implements IStorage {
           ? new Date(latestActivityResult.rows[0].latest_date as string).toISOString()
           : book.uploadedAt ? book.uploadedAt.toISOString() : book.createdAt.toISOString();
         
+        // Get aggregated reactions for this book
+        const reactions = await this.getAggregatedBookReactions(book.id);
+        
         return {
           ...formattedBook,
           commentCount: parseInt(commentCountResult.rows[0].count as string),
@@ -1127,7 +1151,8 @@ export class DBStorage implements IStorage {
           shelfCount: shelfCountResult.rows[0] && shelfCountResult.rows[0].count !== undefined ? parseInt(shelfCountResult.rows[0].count as string) : 0,
           cardViewCount: viewStats.card_view || 0,
           readerOpenCount: viewStats.reader_open || 0,
-          lastActivityDate: lastActivityDate
+          lastActivityDate: lastActivityDate,
+          reactions: reactions
         };
       }));
       
@@ -1981,24 +2006,33 @@ export class DBStorage implements IStorage {
     try {
       console.log('Creating reaction with data:', reactionData);
       
-      // Validate that commentId or reviewId is provided and not empty
-      if (!reactionData.commentId && !reactionData.reviewId) {
-        throw new Error('Either commentId or reviewId is required');
+      // Validate that exactly one entity ID is provided
+      const entityIds = [reactionData.commentId, reactionData.reviewId, reactionData.newsId, reactionData.bookId].filter(id => id && id !== '');
+      
+      if (entityIds.length === 0) {
+        throw new Error('One of commentId, reviewId, newsId, or bookId is required');
       }
       
-      if (reactionData.commentId && reactionData.reviewId) {
-        throw new Error('Only one of commentId or reviewId should be provided');
+      if (entityIds.length > 1) {
+        throw new Error('Only one of commentId, reviewId, newsId, or bookId should be provided');
       }
       
-      if (reactionData.commentId === '' || reactionData.reviewId === '') {
-        throw new Error('commentId or reviewId cannot be empty');
+      // Build the condition to check for existing reactions
+      let entityCondition;
+      if (reactionData.commentId) {
+        entityCondition = eq(reactions.commentId, reactionData.commentId);
+      } else if (reactionData.reviewId) {
+        entityCondition = eq(reactions.reviewId, reactionData.reviewId);
+      } else if (reactionData.newsId) {
+        entityCondition = eq(reactions.newsId, reactionData.newsId);
+      } else if (reactionData.bookId) {
+        entityCondition = eq(reactions.bookId, reactionData.bookId);
       }
       
-      // Check if the user already reacted with the same emoji to the same item
       const condition = and(
         eq(reactions.userId, reactionData.userId),
         eq(reactions.emoji, reactionData.emoji),
-        reactionData.commentId ? eq(reactions.commentId, reactionData.commentId) : eq(reactions.reviewId, reactionData.reviewId)
+        entityCondition
       );
       
       console.log('Query condition:', condition);
@@ -2028,13 +2062,26 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async getReactions(commentOrReviewId: string, isComment: boolean): Promise<any[]> {
+  async getReactions(entityId: string, entityType: 'comment' | 'review' | 'news' | 'book'): Promise<any[]> {
     try {
+      let condition;
+      if (entityType === 'comment') {
+        condition = eq(reactions.commentId, entityId);
+      } else if (entityType === 'review') {
+        condition = eq(reactions.reviewId, entityId);
+      } else if (entityType === 'news') {
+        condition = eq(reactions.newsId, entityId);
+      } else if (entityType === 'book') {
+        condition = eq(reactions.bookId, entityId);
+      }
+      
       const result = await db.select({
         id: reactions.id,
         userId: reactions.userId,
         commentId: reactions.commentId,
         reviewId: reactions.reviewId,
+        newsId: reactions.newsId,
+        bookId: reactions.bookId,
         emoji: reactions.emoji,
         createdAt: reactions.createdAt,
         username: users.username,
@@ -2042,9 +2089,7 @@ export class DBStorage implements IStorage {
       })
       .from(reactions)
       .leftJoin(users, eq(reactions.userId, users.id))
-      .where(isComment 
-        ? eq(reactions.commentId, commentOrReviewId)
-        : eq(reactions.reviewId, commentOrReviewId));
+      .where(condition);
       
       return result;
     } catch (error) {
@@ -2097,6 +2142,37 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error("Error deleting reaction:", error);
       throw error;
+    }
+  }
+  
+  // Helper method to get aggregated reactions for a book
+  async getAggregatedBookReactions(bookId: string, userId?: string): Promise<any[]> {
+    try {
+      const bookReactions = await this.getReactions(bookId, 'book');
+      
+      // Group reactions by emoji
+      const reactionMap = new Map<string, { emoji: string; count: number; userReacted: boolean }>();
+      
+      for (const reaction of bookReactions) {
+        const existing = reactionMap.get(reaction.emoji);
+        if (existing) {
+          existing.count++;
+          if (userId && reaction.userId === userId) {
+            existing.userReacted = true;
+          }
+        } else {
+          reactionMap.set(reaction.emoji, {
+            emoji: reaction.emoji,
+            count: 1,
+            userReacted: userId ? reaction.userId === userId : false
+          });
+        }
+      }
+      
+      return Array.from(reactionMap.values());
+    } catch (error) {
+      console.error("Error getting aggregated book reactions:", error);
+      return [];
     }
   }
   
@@ -2676,7 +2752,7 @@ export class DBStorage implements IStorage {
       // For each comment, get its reactions
       const commentsWithReactions = await Promise.all(result.map(async item => {
         // Get reactions for this comment
-        const commentReactions = await this.getReactions(item.id, true); // true for comment reactions
+        const commentReactions = await this.getReactions(item.id, 'comment');
         
         // Group and aggregate reactions by emoji
         const reactionsMap: Record<string, any[]> = {};
@@ -4386,7 +4462,7 @@ export class DBStorage implements IStorage {
         const commenterData = commenter[0];
         
         // Get reactions for this comment
-        const commentReactions = await this.getReactions(comment.id, true);
+        const commentReactions = await this.getReactions(comment.id, 'comment');
         
         // Group and aggregate reactions by emoji
         const groupedReactions: Record<string, any[]> = {};
@@ -4445,7 +4521,7 @@ export class DBStorage implements IStorage {
         const reviewerData = reviewer[0];
         
         // Get reactions for this review
-        const reviewReactions = await this.getReactions(review.id, false);
+        const reviewReactions = await this.getReactions(review.id, 'review');
         
         // Group and aggregate reactions by emoji
         const groupedReactions: Record<string, any[]> = {};
@@ -4603,7 +4679,7 @@ export class DBStorage implements IStorage {
         }
         
         // Get reactions for this comment
-        const commentReactions = await this.getReactions(comment.id, true);
+        const commentReactions = await this.getReactions(comment.id, 'comment');
         
         // Group and aggregate reactions by emoji
         const groupedReactions: Record<string, any[]> = {};
@@ -4656,7 +4732,7 @@ export class DBStorage implements IStorage {
         const book_title = bookData[0] ? bookData[0].title : 'Unknown';
         
         // Get reactions for this review
-        const reviewReactions = await this.getReactions(review.id, false);
+        const reviewReactions = await this.getReactions(review.id, 'review');
         
         // Group and aggregate reactions by emoji
         const groupedReactions: Record<string, any[]> = {};
@@ -4752,7 +4828,7 @@ export class DBStorage implements IStorage {
         const commenterData = commenter[0];
         
         // Get reactions for this comment
-        const commentReactions = await this.getReactions(comment.id, true);
+        const commentReactions = await this.getReactions(comment.id, 'comment');
         
         // Group and aggregate reactions by emoji
         const groupedReactions: Record<string, any[]> = {};
@@ -4809,7 +4885,7 @@ export class DBStorage implements IStorage {
         const reviewerData = reviewer[0];
         
         // Get reactions for this review
-        const reviewReactions = await this.getReactions(review.id, false);
+        const reviewReactions = await this.getReactions(review.id, 'review');
         
         // Group and aggregate reactions by emoji
         const groupedReactions: Record<string, any[]> = {};

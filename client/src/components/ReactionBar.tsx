@@ -17,11 +17,12 @@ interface ReactionBarProps {
   commentId?: string;
   reviewId?: string;
   newsId?: string;
+  bookId?: string;
 }
 
-const AVAILABLE_EMOJIS = ['👍', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂'];
+const AVAILABLE_EMOJIS = ['👍', '👎', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂'];
 
-export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId }: ReactionBarProps) {
+export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId, bookId }: ReactionBarProps) {
   const handleReaction = async (emoji: string) => {
     // Simply call the onReact handler provided by the parent component
     // The parent component handles the API call and UI updates

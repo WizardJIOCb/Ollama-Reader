@@ -27,7 +27,9 @@
     "navigate_news": "Read news",
     "navigate_book": "Viewed book",
     "navigate_reader": "Started reading",
-    "send_group_message": "Sent message in"
+    "send_group_message": "Sent message in",
+    "user_registered": "User registered",
+    "shelf_created": "Created shelf"
   },
   "by": "by",
   "in": "in",

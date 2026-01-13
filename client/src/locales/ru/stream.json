@@ -27,7 +27,9 @@
     "navigate_news": "Прочитал новость",
     "navigate_book": "Посмотрел книгу",
     "navigate_reader": "Начал читать",
-    "send_group_message": "Отправил сообщение в"
+    "send_group_message": "Отправил сообщение в",
+    "user_registered": "Зарегистрировался пользователь",
+    "shelf_created": "Создал полку"
   },
   "by": "от",
   "in": "в",

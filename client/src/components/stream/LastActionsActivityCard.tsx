@@ -21,6 +21,7 @@ import {
   Book,
   MessageSquare,
   Trash2,
+  Library,
 } from "lucide-react";
 import {
   Tooltip,
@@ -179,6 +180,10 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
         return <BookOpen className="w-5 h-5 text-teal-500" />;
       case 'send_group_message':
         return <MessageSquare className="w-5 h-5 text-purple-600" />;
+      case 'user_registered':
+        return <User className="w-5 h-5 text-green-500" />;
+      case 'shelf_created':
+        return <Library className="w-5 h-5 text-amber-500" />;
       default:
         return <Activity className="w-5 h-5 text-gray-500" />;
     }
@@ -214,6 +219,10 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
       case 'group':
         targetLink = `/messages?group=${activity.target.id}`; // Navigate to specific group
         targetName = activity.target.name || 'Unknown Group';
+        break;
+      case 'shelf':
+        targetLink = `/profile/${activity.userId}`; // Navigate to user's profile who created the shelf
+        targetName = activity.target.name || 'Unknown Shelf';
         break;
     }
 

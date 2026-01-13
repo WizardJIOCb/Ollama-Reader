@@ -489,6 +489,69 @@ export async function registerRoutes(
       // Generate token
       const token = generateToken(user.id);
       
+      // Create default "My books" shelf for new user
+      try {
+        console.log('[Registration] Creating default shelf for new user');
+        await storage.createShelf(user.id, {
+          name: 'My books',
+          description: 'My personal book collection',
+          color: 'bg-blue-100 dark:bg-blue-900/20'
+        });
+        console.log('[Registration] ✅ Default shelf created');
+      } catch (shelfError) {
+        console.error('[Registration] Failed to create default shelf:', shelfError);
+        // Don't fail registration if shelf creation fails
+      }
+      
+      // Log user registration action and broadcast via WebSocket
+      try {
+        console.log('[Registration] Creating user action for registration event');
+        const action = await storage.createUserAction({
+          userId: user.id,
+          actionType: 'user_registered',
+          targetType: 'user',
+          targetId: user.id,
+          metadata: { username: user.username }
+        });
+        console.log('[Registration] User action created:', action?.id);
+        
+        // Broadcast registration event via WebSocket
+        if ((app as any).io && action) {
+          const io = (app as any).io;
+          console.log('[Registration] Broadcasting registration event to stream:global');
+          
+          const eventData = {
+            id: action.id,
+            type: 'user_action',
+            action_type: 'user_registered',
+            entityId: action.id,
+            userId: user.id,
+            user: {
+              id: user.id,
+              username: user.username,
+              avatar_url: user.avatarUrl || null
+            },
+            target: {
+              type: 'user',
+              id: user.id,
+              username: user.username,
+              avatar_url: user.avatarUrl || null
+            },
+            metadata: { username: user.username },
+            createdAt: action.createdAt,
+            timestamp: action.createdAt.toISOString()
+          };
+          
+          // Broadcast to both global stream and last-actions room
+          io.to('stream:global').emit('stream:last-action', eventData);
+          io.to('stream:last-actions').emit('stream:last-action', eventData);
+          console.log('[Registration] ✅ Registration event broadcasted to stream:global and stream:last-actions');
+        }
+      } catch (actionError) {
+        console.error('[Registration] Failed to log user action or broadcast event:', actionError);
+        // Don't fail registration if action logging fails
+      }
+      
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
       res.status(201).json({ user: userWithoutPassword, token });
@@ -2004,6 +2067,58 @@ export async function registerRoutes(
       }
       
       const shelf = await storage.createShelf(userId, { name, description, color });
+      
+      // Log shelf creation action and broadcast via WebSocket
+      try {
+        console.log('[Shelf Creation] Creating user action for shelf creation event');
+        const action = await storage.createUserAction({
+          userId: userId,
+          actionType: 'shelf_created',
+          targetType: 'shelf',
+          targetId: shelf.id,
+          metadata: { shelf_name: name }
+        });
+        console.log('[Shelf Creation] User action created:', action?.id);
+        
+        // Broadcast shelf creation event via WebSocket
+        if ((app as any).io && action) {
+          const io = (app as any).io;
+          console.log('[Shelf Creation] Broadcasting shelf creation event');
+          
+          // Get user info for broadcast
+          const user = await storage.getUser(userId);
+          
+          const eventData = {
+            id: action.id,
+            type: 'user_action',
+            action_type: 'shelf_created',
+            entityId: action.id,
+            userId: userId,
+            user: {
+              id: userId,
+              username: user?.username || 'Unknown',
+              avatar_url: user?.avatarUrl || null
+            },
+            target: {
+              type: 'shelf',
+              id: shelf.id,
+              name: name
+            },
+            metadata: { shelf_name: name },
+            createdAt: action.createdAt,
+            timestamp: action.createdAt.toISOString()
+          };
+          
+          // Broadcast to both global stream and last-actions room
+          io.to('stream:global').emit('stream:last-action', eventData);
+          io.to('stream:last-actions').emit('stream:last-action', eventData);
+          console.log('[Shelf Creation] ✅ Shelf creation event broadcasted');
+        }
+      } catch (actionError) {
+        console.error('[Shelf Creation] Failed to log user action or broadcast event:', actionError);
+        // Don't fail shelf creation if action logging fails
+      }
+      
       res.status(201).json(shelf);
     } catch (error) {
       console.error("Create shelf error:", error);

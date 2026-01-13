@@ -66,7 +66,7 @@
       "allShelves": "All Shelves",
       "specificShelf": "Filter by Shelf",
       "specificBooks": "Filter by Books",
-      "clearFilter": "Clear Filter",
+      "clearFilter": "Reset filters",
       "selectShelf": "Select a shelf...",
       "selectBooks": "Select books...",
       "infoText": "Select a shelf or specific books to filter activities",
@@ -85,5 +85,17 @@
   "newNews": "New article published",
   "reactionAdded": "Reaction added",
   "reactionAddedDescription": "Your reaction has been saved",
-  "reactionError": "Failed to add reaction"
+  "reactionError": "Failed to add reaction",
+  "activityTypeFilter": {
+    "title": "Activity Types",
+    "clearFilters": "Reset filters",
+    "selectAll": "Select All",
+    "news": "News",
+    "book": "Books",
+    "comment": "Comments",
+    "review": "Reviews",
+    "user_action": "User Actions",
+    "noResults": "No activities match your filters",
+    "infoText": "Showing all activity types"
+  }
 }

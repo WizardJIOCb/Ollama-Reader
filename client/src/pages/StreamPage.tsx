@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityCard } from "@/components/stream/ActivityCard";
 import { LastActionsActivityCard } from "@/components/stream/LastActionsActivityCard";
 import { ShelfFilters } from "@/components/stream/ShelfFilters";
+import { ActivityTypeFilter } from "@/components/stream/ActivityTypeFilter";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Zap } from "lucide-react";
 import { getSocket } from "@/lib/socket";
@@ -14,7 +15,7 @@ import { usePageView } from "@/hooks/usePageView";
 
 interface Activity {
   id: string;
-  type: 'news' | 'book' | 'comment' | 'review';
+  type: 'news' | 'book' | 'comment' | 'review' | 'user_action';
   entityId: string;
   userId: string;
   targetUserId?: string;
@@ -24,6 +25,8 @@ interface Activity {
   createdAt: string;
   updatedAt: string;
 }
+
+type ActivityType = 'news' | 'book' | 'comment' | 'review' | 'user_action';
 
 interface ShelfFiltersData {
   selectedShelf: string | null;
@@ -39,6 +42,14 @@ export default function StreamPage() {
   const [filters, setFilters] = useState<ShelfFiltersData>({ selectedShelf: null, selectedBooks: [] });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const socketRef = useRef<any>(null);
+  
+  // Activity type filters for each tab
+  const [activityTypeFilters, setActivityTypeFilters] = useState<Record<string, ActivityType[]>>({
+    global: ['news', 'book', 'comment', 'review'],
+    personal: ['news', 'book', 'comment', 'review'],
+    shelves: ['news', 'book', 'comment', 'review'],
+    'last-actions': ['news', 'book', 'comment', 'review', 'user_action']
+  });
   
   // Track page view for navigation logging
   usePageView('stream');
@@ -144,6 +155,12 @@ export default function StreamPage() {
                            activeTab === 'personal' ? personalActivities : 
                            activeTab === 'last-actions' ? lastActions :
                            shelfActivities;
+  
+  // Apply activity type filtering
+  const selectedTypeFilters = activityTypeFilters[activeTab] || [];
+  const filteredActivities = currentActivities.filter(activity => 
+    selectedTypeFilters.includes(activity.type as ActivityType)
+  );
   
   const isLoading = activeTab === 'global' ? globalLoading : 
                    activeTab === 'personal' ? personalLoading :
@@ -532,6 +549,14 @@ export default function StreamPage() {
   const handleFilterChange = useCallback((newFilters: ShelfFiltersData) => {
     setFilters(newFilters);
   }, []);
+  
+  // Handle activity type filter change
+  const handleActivityTypeFilterChange = useCallback((selectedTypes: ActivityType[]) => {
+    setActivityTypeFilters(prev => ({
+      ...prev,
+      [activeTab]: selectedTypes
+    }));
+  }, [activeTab]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -559,16 +584,26 @@ export default function StreamPage() {
         {/* Global Stream Tab */}
         <TabsContent value="global" className="mt-0">
           <div className="space-y-4">
+            {/* Activity Type Filter */}
+            <ActivityTypeFilter
+              availableTypes={['news', 'book', 'comment', 'review']}
+              selectedTypes={activityTypeFilters.global}
+              onFilterChange={handleActivityTypeFilterChange}
+            />
+            
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 Loading...
               </div>
-            ) : currentActivities.length === 0 ? (
+            ) : filteredActivities.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {t('stream:noActivities')}
+                {currentActivities.length === 0 
+                  ? t('stream:noActivities')
+                  : t('stream:activityTypeFilter.noResults')
+                }
               </div>
             ) : (
-              currentActivities.map((activity: any) => (
+              filteredActivities.map((activity: any) => (
                 <ActivityCard key={activity.id} activity={activity} />
               ))
             )}
@@ -583,9 +618,17 @@ export default function StreamPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Combined Filters: Activity Types + Shelf and Book Filters */}
               <ShelfFilters 
                 filters={filters} 
                 onFilterChange={handleFilterChange}
+                activityTypeFilters={activityTypeFilters.shelves.filter(t => t !== 'user_action') as ('news' | 'book' | 'comment' | 'review')[]}
+                onActivityTypeFilterChange={(types) => {
+                  setActivityTypeFilters(prev => ({
+                    ...prev,
+                    shelves: types
+                  }));
+                }}
               />
               
               <div className="space-y-4 mt-6">
@@ -593,12 +636,15 @@ export default function StreamPage() {
                   <div className="text-center py-8 text-muted-foreground">
                     Loading...
                   </div>
-                ) : currentActivities.length === 0 ? (
+                ) : filteredActivities.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    {t('stream:noActivities')}
+                    {currentActivities.length === 0 
+                      ? t('stream:noActivities')
+                      : t('stream:activityTypeFilter.noResults')
+                    }
                   </div>
                 ) : (
-                  currentActivities.map((activity: any) => (
+                  filteredActivities.map((activity: any) => (
                     <ActivityCard key={activity.id} activity={activity} />
                   ))
                 )}
@@ -615,16 +661,26 @@ export default function StreamPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Activity Type Filter */}
+              <ActivityTypeFilter
+                availableTypes={['news', 'book', 'comment', 'review']}
+                selectedTypes={activityTypeFilters.personal}
+                onFilterChange={handleActivityTypeFilterChange}
+              />
+              
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Loading...
                 </div>
-              ) : currentActivities.length === 0 ? (
+              ) : filteredActivities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {t('stream:noActivities')}
+                  {currentActivities.length === 0 
+                    ? t('stream:noActivities')
+                    : t('stream:activityTypeFilter.noResults')
+                  }
                 </div>
               ) : (
-                currentActivities.map((activity: any) => (
+                filteredActivities.map((activity: any) => (
                   <ActivityCard key={activity.id} activity={activity} />
                 ))
               )}
@@ -635,22 +691,34 @@ export default function StreamPage() {
         {/* Last Actions Tab */}
         <TabsContent value="last-actions" className="mt-0">
           <div className="space-y-4">
+            {/* Activity Type Filter */}
+            <ActivityTypeFilter
+              availableTypes={['news', 'book', 'comment', 'review', 'user_action']}
+              selectedTypes={activityTypeFilters['last-actions']}
+              onFilterChange={handleActivityTypeFilterChange}
+            />
+            
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 Loading...
               </div>
-            ) : currentActivities.length === 0 ? (
+            ) : filteredActivities.length === 0 ? (
               <div className="text-center py-12">
                 <Zap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-lg font-medium text-muted-foreground mb-2">
-                  {t('stream:noLastActions')}
+                  {currentActivities.length === 0 
+                    ? t('stream:noLastActions')
+                    : t('stream:activityTypeFilter.noResults')
+                  }
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  {t('stream:noLastActionsSubtext')}
-                </p>
+                {currentActivities.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('stream:noLastActionsSubtext')}
+                  </p>
+                )}
               </div>
             ) : (
-              currentActivities.map((action: any) => {
+              filteredActivities.map((action: any) => {
                 // Regular activities from global stream
                 if (action.type !== 'user_action') {
                   return <ActivityCard key={action.id} activity={action} />;

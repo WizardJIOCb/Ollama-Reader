@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { X, ChevronDown, ChevronUp, Filter } from "lucide-react";
 
+type ActivityType = 'news' | 'book' | 'comment' | 'review';
+
 interface ShelfFiltersData {
   selectedShelf: string | null;
   selectedBooks: string[];
@@ -17,6 +19,8 @@ interface ShelfFiltersData {
 interface ShelfFiltersProps {
   filters: ShelfFiltersData;
   onFilterChange: (filters: ShelfFiltersData) => void;
+  activityTypeFilters: ActivityType[];
+  onActivityTypeFilterChange: (selectedTypes: ActivityType[]) => void;
 }
 
 interface Shelf {
@@ -36,10 +40,12 @@ interface FiltersData {
   books: Book[];
 }
 
-export function ShelfFilters({ filters, onFilterChange }: ShelfFiltersProps) {
+export function ShelfFilters({ filters, onFilterChange, activityTypeFilters, onActivityTypeFilterChange }: ShelfFiltersProps) {
   const { t } = useTranslation(['stream']);
   const [localFilters, setLocalFilters] = useState(filters);
   const [isOpen, setIsOpen] = useState(false);
+  
+  const availableTypes: ActivityType[] = ['news', 'book', 'comment', 'review'];
 
   // Fetch shelves and books for filtering
   const { data: filtersData } = useQuery<FiltersData>({
@@ -84,8 +90,29 @@ export function ShelfFilters({ filters, onFilterChange }: ShelfFiltersProps) {
     setLocalFilters(newFilters);
     onFilterChange(newFilters);
   };
+  
+  // Handle activity type toggle
+  const handleActivityTypeToggle = (type: ActivityType) => {
+    // Ensure at least one type remains selected
+    if (activityTypeFilters.length === 1 && activityTypeFilters.includes(type)) {
+      return;
+    }
+
+    const newSelectedTypes = activityTypeFilters.includes(type)
+      ? activityTypeFilters.filter(t => t !== type)
+      : [...activityTypeFilters, type];
+    
+    onActivityTypeFilterChange(newSelectedTypes);
+  };
+  
+  // Select all activity types
+  const handleSelectAllTypes = () => {
+    onActivityTypeFilterChange(availableTypes);
+  };
 
   const hasActiveFilters = localFilters.selectedShelf || localFilters.selectedBooks.length > 0;
+  const hasActiveTypeFilters = activityTypeFilters.length < availableTypes.length;
+  const hasAnyActiveFilters = hasActiveFilters || hasActiveTypeFilters;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -97,18 +124,23 @@ export function ShelfFilters({ filters, onFilterChange }: ShelfFiltersProps) {
                 <Filter className="w-4 h-4" />
                 <CardTitle className="text-sm font-medium">
                   {t('stream:myShelvesStream.filters.title')}
-                  {hasActiveFilters && (
-                    <span className="ml-2 text-xs text-primary">({localFilters.selectedBooks.length > 0 ? localFilters.selectedBooks.length : '1'})</span>
+                  {hasAnyActiveFilters && (
+                    <span className="ml-2 text-xs text-primary">
+                      ({(hasActiveTypeFilters ? 1 : 0) + (localFilters.selectedBooks.length > 0 ? localFilters.selectedBooks.length : (localFilters.selectedShelf ? 1 : 0))})
+                    </span>
                   )}
                 </CardTitle>
                 {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </Button>
             </CollapsibleTrigger>
-            {hasActiveFilters && (
+            {hasAnyActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleClearFilters}
+                onClick={() => {
+                  handleClearFilters();
+                  handleSelectAllTypes();
+                }}
                 className="h-8"
               >
                 <X className="w-4 h-4 mr-1" />
@@ -119,6 +151,34 @@ export function ShelfFilters({ filters, onFilterChange }: ShelfFiltersProps) {
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="space-y-4">
+            {/* Activity type checkboxes */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t('stream:activityTypeFilter.title')}
+              </Label>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {availableTypes.map((type) => (
+                  <div key={type} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`shelf-activity-type-${type}`}
+                      checked={activityTypeFilters.includes(type)}
+                      onCheckedChange={() => handleActivityTypeToggle(type)}
+                      disabled={activityTypeFilters.length === 1 && activityTypeFilters.includes(type)}
+                    />
+                    <Label
+                      htmlFor={`shelf-activity-type-${type}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {t(`stream:activityTypeFilter.${type}`)}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Divider */}
+            <div className="border-t pt-4" />
+            
             {/* Shelf selector */}
             <div className="space-y-2">
               <Label htmlFor="shelf-select" className="text-sm">

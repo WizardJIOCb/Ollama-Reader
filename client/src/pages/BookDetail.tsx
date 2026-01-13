@@ -901,7 +901,7 @@ export default function BookDetail() {
                   </div>
                 )}
                 
-                <p className="text-foreground/90 mb-6 leading-relaxed">
+                <p className="text-foreground/90 mb-6 leading-relaxed whitespace-pre-line">
                   {book.description || t('books:noDescription')}
                 </p>
               </CardContent>

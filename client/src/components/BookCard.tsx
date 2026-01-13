@@ -196,7 +196,7 @@ export const BookCard: React.FC<BookCardProps> = ({
       <CardContent className="pb-1">
         {variant === 'detailed' && (
           <>
-            <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+            <p className="text-sm text-muted-foreground line-clamp-3 mb-3 whitespace-pre-line">
               {book.description}
             </p>
             

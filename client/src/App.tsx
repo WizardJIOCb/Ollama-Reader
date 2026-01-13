@@ -20,6 +20,7 @@ import AdminDashboard from "@/components/AdminDashboard";
 import UserManagement from "@/pages/UserManagement";
 import Messages from "@/pages/Messages";
 import NewsDetailPage from "@/pages/NewsDetailPage";
+import NewsListPage from "@/pages/NewsListPage";
 import StreamPage from "@/pages/StreamPage";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/stream" component={StreamPage} />
       <Route path="/book/:bookId" component={BookDetail} />
       <Route path="/read/:bookId/:chapterId" component={Reader} />
+      <Route path="/news" component={NewsListPage} />
       <Route path="/news/:id" component={NewsDetailPage} />
       <Route path="/messages" component={Messages} />
       <Route path="/profile/:userId?" component={Profile} />

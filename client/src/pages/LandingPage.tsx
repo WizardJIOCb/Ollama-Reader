@@ -144,7 +144,7 @@ const LandingPage = () => {
       </section>
 
       {/* News Section */}
-      <NewsBlock />
+      <NewsBlock limit={3} showViewAllButton={true} />
 
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 bg-muted/30">

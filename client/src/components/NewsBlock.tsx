@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User } from 'lucide-react';
 import { apiCall } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDate } from '@/lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
+import { Link } from 'wouter';
 
 interface NewsItem {
   id: string;
@@ -21,7 +23,12 @@ interface NewsItem {
   reactionCount: number;
 }
 
-const NewsBlock: React.FC = () => {
+interface NewsBlockProps {
+  limit?: number;
+  showViewAllButton?: boolean;
+}
+
+const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false }) => {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +43,8 @@ const NewsBlock: React.FC = () => {
           throw new Error(`Failed to fetch news: ${response.status} ${response.statusText}`);
         }
         const data = await response.json();
-        setNewsItems(data);
+        const newsToDisplay = limit ? data.slice(0, limit) : data;
+        setNewsItems(newsToDisplay);
         setLoading(false);
       } catch (err: any) {
         console.error('Error fetching news:', err);
@@ -158,6 +166,16 @@ const NewsBlock: React.FC = () => {
             </Card>
           )}
         </div>
+        
+        {showViewAllButton && newsItems.length > 0 && (
+          <div className="text-center mt-8">
+            <Link href="/news">
+              <Button size="lg" variant="outline">
+                {t('common:viewAllNews')}
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

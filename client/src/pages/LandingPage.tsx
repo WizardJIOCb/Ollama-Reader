@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 import NewsBlock from '@/components/NewsBlock';
+import { BookCard } from '@/components/BookCard';
 import { 
   BookOpen, 
   Brain, 
@@ -12,13 +13,16 @@ import {
   FileText,
   Users,
   GraduationCap,
-  Search
+  Search,
+  TrendingUp
 } from 'lucide-react';
 
 const LandingPage = () => {
   const { user } = useAuth();
   const [location] = useLocation();
   const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
+  const [popularBooks, setPopularBooks] = useState<any[]>([]);
+  const [loadingBooks, setLoadingBooks] = useState(true);
   const { t } = useTranslation(['landing', 'common']);
   
   // Track landing page view for authenticated users
@@ -54,6 +58,26 @@ const LandingPage = () => {
       }, 100);
     }
   }, [location]);
+  
+  // Fetch popular books
+  useEffect(() => {
+    const fetchPopularBooks = async () => {
+      try {
+        setLoadingBooks(true);
+        const response = await fetch('/api/popular-books');
+        if (response.ok) {
+          const books = await response.json();
+          setPopularBooks(books.slice(0, 3)); // Take first 3 books
+        }
+      } catch (error) {
+        console.error('Failed to fetch popular books:', error);
+      } finally {
+        setLoadingBooks(false);
+      }
+    };
+    
+    fetchPopularBooks();
+  }, []);
   
   const features = [
     {
@@ -212,8 +236,45 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Value Proposition Section */}
+      {/* Popular Books Section */}
       <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <TrendingUp className="w-8 h-8 text-primary" />
+              <h2 className="text-3xl md:text-4xl font-bold font-serif">{t('landing:popularBooksTitle')}</h2>
+            </div>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              {t('landing:popularBooksSubtitle')}
+            </p>
+          </div>
+          
+          {loadingBooks ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">{t('common:loading')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {popularBooks.map((book) => (
+                <BookCard key={book.id} book={book} />
+              ))}
+            </div>
+          )}
+          
+          {!loadingBooks && popularBooks.length > 0 && (
+            <div className="text-center mt-8">
+              <Link href="/home">
+                <Button size="lg" variant="outline">
+                  {t('landing:viewAllBooks')}
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Value Proposition Section */}
+      <section className="py-20">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">{t('landing:whyReaderMarketTitle')}</h2>

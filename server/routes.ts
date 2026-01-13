@@ -460,6 +460,17 @@ export async function registerRoutes(
     res.json({ page: "about" });
   });
   
+  // Get popular books for landing page
+  app.get("/api/popular-books", async (req, res) => {
+    try {
+      const popularBooks = await storage.getPopularBooks(6);
+      res.json(popularBooks);
+    } catch (error) {
+      console.error('[API] Error fetching popular books:', error);
+      res.status(500).json({ error: 'Failed to fetch popular books' });
+    }
+  });
+  
   // User registration
   app.post("/api/auth/register", async (req, res) => {
     console.log("Registration endpoint called");

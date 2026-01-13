@@ -14,16 +14,30 @@ interface ActivityTypeFilterProps {
   selectedTypes: ActivityType[];
   onFilterChange: (selectedTypes: ActivityType[]) => void;
   isCollapsible?: boolean;
+  hideMyActions?: boolean;
+  onHideMyActionsChange?: (hideMyActions: boolean) => void;
+  showHideMyActions?: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 export function ActivityTypeFilter({ 
   availableTypes, 
   selectedTypes, 
   onFilterChange,
-  isCollapsible = true 
+  isCollapsible = true,
+  hideMyActions = false,
+  onHideMyActionsChange,
+  showHideMyActions = false,
+  isOpen: externalIsOpen,
+  onOpenChange: externalOnOpenChange
 }: ActivityTypeFilterProps) {
   const { t } = useTranslation(['stream']);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnOpenChange || setInternalIsOpen;
 
   // Handle type toggle
   const handleTypeToggle = (type: ActivityType) => {
@@ -50,10 +64,9 @@ export function ActivityTypeFilter({
   };
 
   const hasActiveFilters = selectedTypes.length < availableTypes.length;
-  const allSelected = selectedTypes.length === availableTypes.length;
 
   const content = (
-    <CardContent className="space-y-3 pt-4">
+    <CardContent className="space-y-3">
       {/* Activity type checkboxes */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:flex md:flex-wrap">
         {availableTypes.map((type) => (
@@ -74,11 +87,23 @@ export function ActivityTypeFilter({
         ))}
       </div>
 
-      {/* Info text when all selected */}
-      {allSelected && (
-        <p className="text-xs text-muted-foreground pt-2">
-          {t('stream:activityTypeFilter.infoText')}
-        </p>
+      {/* Hide My Actions Toggle */}
+      {showHideMyActions && onHideMyActionsChange && (
+        <div className="pt-2 border-t">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hide-my-actions"
+              checked={hideMyActions}
+              onCheckedChange={(checked) => onHideMyActionsChange(checked === true)}
+            />
+            <Label
+              htmlFor="hide-my-actions"
+              className="text-sm font-normal cursor-pointer"
+            >
+              {t('stream:showMyActivity')}
+            </Label>
+          </div>
+        </div>
       )}
     </CardContent>
   );

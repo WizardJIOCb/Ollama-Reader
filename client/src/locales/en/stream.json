@@ -97,5 +97,7 @@
     "user_action": "User Actions",
     "noResults": "No activities match your filters",
     "infoText": "Showing all activity types"
-  }
+  },
+  "showMyActivity": "Show my activity",
+  "showMyActivityDescription": "When enabled, shows your own activities along with others"
 }

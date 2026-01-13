@@ -21,6 +21,11 @@ interface ShelfFiltersProps {
   onFilterChange: (filters: ShelfFiltersData) => void;
   activityTypeFilters: ActivityType[];
   onActivityTypeFilterChange: (selectedTypes: ActivityType[]) => void;
+  hideMyActions?: boolean;
+  onHideMyActionsChange?: (hideMyActions: boolean) => void;
+  showHideMyActions?: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 interface Shelf {
@@ -40,10 +45,14 @@ interface FiltersData {
   books: Book[];
 }
 
-export function ShelfFilters({ filters, onFilterChange, activityTypeFilters, onActivityTypeFilterChange }: ShelfFiltersProps) {
+export function ShelfFilters({ filters, onFilterChange, activityTypeFilters, onActivityTypeFilterChange, hideMyActions = false, onHideMyActionsChange, showHideMyActions = false, isOpen: externalIsOpen, onOpenChange: externalOnOpenChange }: ShelfFiltersProps) {
   const { t } = useTranslation(['stream']);
   const [localFilters, setLocalFilters] = useState(filters);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalOnOpenChange || setInternalIsOpen;
   
   const availableTypes: ActivityType[] = ['news', 'book', 'comment', 'review'];
 
@@ -153,9 +162,6 @@ export function ShelfFilters({ filters, onFilterChange, activityTypeFilters, onA
           <CardContent className="space-y-4">
             {/* Activity type checkboxes */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                {t('stream:activityTypeFilter.title')}
-              </Label>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {availableTypes.map((type) => (
                   <div key={type} className="flex items-center space-x-2">
@@ -175,6 +181,25 @@ export function ShelfFilters({ filters, onFilterChange, activityTypeFilters, onA
                 ))}
               </div>
             </div>
+            
+            {/* Hide My Actions Toggle */}
+            {showHideMyActions && onHideMyActionsChange && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="shelf-hide-my-actions"
+                    checked={hideMyActions}
+                    onCheckedChange={(checked) => onHideMyActionsChange(checked === true)}
+                  />
+                  <Label
+                    htmlFor="shelf-hide-my-actions"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {t('stream:showMyActivity')}
+                  </Label>
+                </div>
+              </div>
+            )}
             
             {/* Divider */}
             <div className="border-t pt-4" />

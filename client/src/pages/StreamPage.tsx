@@ -7,7 +7,7 @@ import { LastActionsActivityCard } from "@/components/stream/LastActionsActivity
 import { ShelfFilters } from "@/components/stream/ShelfFilters";
 import { ActivityTypeFilter } from "@/components/stream/ActivityTypeFilter";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { getSocket } from "@/lib/socket";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -43,6 +43,31 @@ export default function StreamPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const socketRef = useRef<any>(null);
   
+  // Load showMyActivity state from localStorage or use defaults
+  const loadShowMyActivityFromStorage = (): Record<string, boolean> => {
+    try {
+      const stored = localStorage.getItem('streamShowMyActivity');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Error loading showMyActivity from localStorage:', error);
+    }
+    // Return defaults if not in storage or error
+    return {
+      global: false, // Don't show own activities by default
+      personal: true, // Always show own activities on personal tab
+      shelves: false, // Don't show own activities by default
+      'last-actions': false // Don't show own activities by default
+    };
+  };
+  
+  // Show my activity filter for each tab (separate state per tab)
+  const [showMyActivity, setShowMyActivity] = useState<Record<string, boolean>>(loadShowMyActivityFromStorage);
+  
+  // Filter panel open/closed state - shared across all tabs
+  const [filterPanelOpen, setFilterPanelOpen] = useState<boolean>(false);
+  
   // Activity type filters for each tab
   const [activityTypeFilters, setActivityTypeFilters] = useState<Record<string, ActivityType[]>>({
     global: ['news', 'book', 'comment', 'review'],
@@ -64,6 +89,15 @@ export default function StreamPage() {
     const token = localStorage.getItem('authToken');
     setIsAuthenticated(!!token);
   }, []);
+
+  // Save showMyActivity state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('streamShowMyActivity', JSON.stringify(showMyActivity));
+    } catch (error) {
+      console.error('Error saving showMyActivity to localStorage:', error);
+    }
+  }, [showMyActivity]);
 
   // Invalidate query cache on mount to ensure fresh data when returning to Stream page
   // This fixes the issue where comments posted on other pages don't appear until manual refresh
@@ -158,9 +192,17 @@ export default function StreamPage() {
   
   // Apply activity type filtering
   const selectedTypeFilters = activityTypeFilters[activeTab] || [];
-  const filteredActivities = currentActivities.filter(activity => 
+  let filteredActivities = currentActivities.filter(activity => 
     selectedTypeFilters.includes(activity.type as ActivityType)
   );
+  
+  // Apply showMyActivity filter if disabled and user is authenticated
+  // Use the tab-specific showMyActivity state (inverted logic from hideMyActions)
+  if (!showMyActivity[activeTab] && currentUser) {
+    filteredActivities = filteredActivities.filter(activity => 
+      activity.userId !== currentUser.id
+    );
+  }
   
   const isLoading = activeTab === 'global' ? globalLoading : 
                    activeTab === 'personal' ? personalLoading :
@@ -560,7 +602,7 @@ export default function StreamPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
+      <div className="mb-3">
         <h1 className="text-3xl font-bold mb-2">{t('stream:title')}</h1>
       </div>
 
@@ -589,6 +631,11 @@ export default function StreamPage() {
               availableTypes={['news', 'book', 'comment', 'review']}
               selectedTypes={activityTypeFilters.global}
               onFilterChange={handleActivityTypeFilterChange}
+              showHideMyActions={isAuthenticated}
+              hideMyActions={showMyActivity.global}
+              onHideMyActionsChange={(show) => setShowMyActivity(prev => ({ ...prev, global: show }))}
+              isOpen={filterPanelOpen}
+              onOpenChange={setFilterPanelOpen}
             />
             
             {isLoading ? (
@@ -629,6 +676,11 @@ export default function StreamPage() {
                     shelves: types
                   }));
                 }}
+                showHideMyActions={true}
+                hideMyActions={showMyActivity.shelves}
+                onHideMyActionsChange={(show) => setShowMyActivity(prev => ({ ...prev, shelves: show }))}
+                isOpen={filterPanelOpen}
+                onOpenChange={setFilterPanelOpen}
               />
               
               <div className="space-y-4 mt-6">
@@ -666,6 +718,9 @@ export default function StreamPage() {
                 availableTypes={['news', 'book', 'comment', 'review']}
                 selectedTypes={activityTypeFilters.personal}
                 onFilterChange={handleActivityTypeFilterChange}
+                showHideMyActions={false}
+                isOpen={filterPanelOpen}
+                onOpenChange={setFilterPanelOpen}
               />
               
               {isLoading ? (
@@ -696,6 +751,11 @@ export default function StreamPage() {
               availableTypes={['news', 'book', 'comment', 'review', 'user_action']}
               selectedTypes={activityTypeFilters['last-actions']}
               onFilterChange={handleActivityTypeFilterChange}
+              showHideMyActions={isAuthenticated}
+              hideMyActions={showMyActivity['last-actions']}
+              onHideMyActionsChange={(show) => setShowMyActivity(prev => ({ ...prev, 'last-actions': show }))}
+              isOpen={filterPanelOpen}
+              onOpenChange={setFilterPanelOpen}
             />
             
             {isLoading ? (

@@ -128,6 +128,58 @@ export const reviewsApi = {
   }),
 };
 
+// Reader API for reading progress, settings, and bookmarks
+export const readerApi = {
+  // Reading Progress
+  getProgress: (bookId: string) => apiCall(`/api/books/${bookId}/reading-progress`),
+  
+  updateProgress: (bookId: string, data: {
+    currentPage?: number;
+    totalPages?: number;
+    percentage?: number;
+    chapterIndex?: number;
+  }) => apiCall(`/api/books/${bookId}/reading-progress`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+
+  // Reader Settings
+  getSettings: (bookId: string) => apiCall(`/api/books/${bookId}/reader-settings`),
+  
+  updateSettings: (bookId: string, settings: {
+    fontSize?: number;
+    fontFamily?: string;
+    lineHeight?: number;
+    theme?: 'light' | 'dark' | 'sepia';
+    margins?: number;
+    textAlign?: 'left' | 'justify';
+    paragraphIndent?: number;
+    viewMode?: 'paginated' | 'scroll';
+    showProgressBar?: boolean;
+  }) => apiCall(`/api/books/${bookId}/reader-settings`, {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  }),
+
+  // Bookmarks
+  getBookmarks: (bookId: string) => apiCall(`/api/books/${bookId}/bookmarks`),
+  
+  createBookmark: (bookId: string, data: {
+    title: string;
+    chapterIndex?: number;
+    percentage?: number;
+    selectedText?: string;
+    pageInChapter?: number;
+  }) => apiCall(`/api/books/${bookId}/bookmarks`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  
+  deleteBookmark: (bookmarkId: string) => apiCall(`/api/bookmarks/${bookmarkId}`, {
+    method: 'DELETE',
+  }),
+};
+
 export const commentsApi = {
   getBookComments: (bookId: string) => apiCall(`/api/books/${bookId}/comments`),
   createComment: (bookId: string, commentData: any) => apiCall(`/api/books/${bookId}/comments`, {

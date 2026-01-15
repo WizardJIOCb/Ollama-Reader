@@ -14,11 +14,12 @@ import {
   Bookmark,
   Activity
 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import { ReactionBar } from '@/components/ReactionBar';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useBookSplash } from '@/lib/bookSplashContext';
 
 interface BookCardProps {
   book: Book;
@@ -41,6 +42,8 @@ export const BookCard: React.FC<BookCardProps> = ({
   const { t } = useTranslation(['books']);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const { showSplash } = useBookSplash();
   const [localReactions, setLocalReactions] = useState(book.reactions || []);
   // Format dates for display in DD.MM.YYYY format
   const formatDate = (dateString: string | undefined) => {
@@ -140,6 +143,24 @@ export const BookCard: React.FC<BookCardProps> = ({
         variant: "destructive",
       });
     }
+  };
+
+  // Handle Read button click with splash screen transition
+  const handleReadClick = () => {
+    // Show splash screen with book data
+    showSplash({
+      id: book.id.toString(),
+      title: book.title,
+      author: book.author,
+      coverImageUrl: book.coverImage || book.coverImageUrl,
+      description: book.description,
+      rating: book.rating,
+    });
+    
+    // Navigate to reader after a short delay to allow splash to appear
+    setTimeout(() => {
+      setLocation(`/read/${book.id}/1`);
+    }, 400);
   };
 
   return (
@@ -314,10 +335,13 @@ export const BookCard: React.FC<BookCardProps> = ({
       
       <CardFooter className="flex flex-col gap-2">
         <div className="flex gap-2 w-full">
-          <Button variant="outline" size="sm" className="flex-1" asChild>
-            <Link href={`/read/${book.id}/1`}>
-              {t('books:read')}
-            </Link>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1"
+            onClick={handleReadClick}
+          >
+            {t('books:read')}
           </Button>
           <Button variant="outline" size="sm" className="flex-1" asChild>
             <Link href={`/book/${book.id}`}>

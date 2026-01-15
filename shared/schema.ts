@@ -73,6 +73,8 @@ export const readingProgress = pgTable("reading_progress", {
   currentPage: integer("current_page"),
   totalPages: integer("total_pages"),
   percentage: numeric("percentage", { precision: 5, scale: 2 }),
+  chapterIndex: integer("chapter_index"),
+  settings: jsonb("settings"),
   lastReadAt: timestamp("last_read_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -106,10 +108,11 @@ export const bookmarks = pgTable("bookmarks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   bookId: varchar("book_id").notNull().references(() => books.id),
-  chapterId: varchar("chapter_id"),
+  chapterIndex: integer("chapter_index"),
   title: text("title").notNull(),
-  content: text("content"),
-  position: integer("position"),
+  selectedText: text("selected_text"),
+  pageInChapter: integer("page_in_chapter"),
+  percentage: numeric("percentage", { precision: 5, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

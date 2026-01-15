@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { BookSplashProvider } from "@/lib/bookSplashContext";
 import NotFound from "@/pages/not-found";
 import Library from "@/pages/Library";
 import AboutPage from "@/pages/AboutPage";
@@ -81,14 +82,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="flex flex-col min-h-screen">
-          <Toaster />
-          <Navbar />
-          <main className="flex-1">
-            <Router />
-          </main>
-          {!isReaderPage && !isMessagesPage && <Footer />}
-        </div>
+        <BookSplashProvider>
+          <div className="flex flex-col min-h-screen">
+            <Toaster />
+            <Navbar />
+            <main className="flex-1">
+              <Router />
+            </main>
+            {!isReaderPage && !isMessagesPage && <Footer />}
+          </div>
+        </BookSplashProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

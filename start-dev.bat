@@ -1,9 +1,6 @@
 @echo off
 SETLOCAL
 
-REM Clean up any existing PID file
-if exist "C:\Projects\reader.market\pids.txt" del "C:\Projects\reader.market\pids.txt"
-
 REM Kill any existing processes on our ports
 echo Stopping any existing processes on ports 5001 and 3001...
 taskkill /f /im node.exe /fi "WINDOWTITLE eq Backend*" >nul 2>&1
@@ -131,9 +128,6 @@ echo.
 echo Starting servers...
 REM Ensure we're in the right directory
 cd /d C:\Projects\reader.market
-
-REM Store the current process PID (the launcher window) to a file
-echo %PROCESSOR_IDENTIFIER% > "C:\Projects\reader.market\pids.txt"
 
 echo Launching backend server...
 start "Backend - Reader.Market" cmd /k "cd /d C:\Projects\reader.market && set PORT=5001 && echo Starting backend... && npm run dev && pause"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useRoute, Link } from 'wouter';
+import { useRoute, Link, useLocation } from 'wouter';
 import * as MockData from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,7 @@ import { useShelves } from '@/hooks/useShelves';
 import { useAuth } from '@/lib/auth';
 import { booksApi } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
+import { useBookSplash } from '@/lib/bookSplashContext';
 
 // Define the Book interface to match our database schema
 interface Book {
@@ -142,6 +143,10 @@ export default function BookDetail() {
   const [newComment, setNewComment] = useState('');
   const [newReview, setNewReview] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
+  
+  // Global splash screen for seamless transition
+  const { showSplash } = useBookSplash();
+  const [, setLocation] = useLocation();
   
   // Function to fetch comments and reviews
   const fetchCommentsAndReviews = async () => {
@@ -638,6 +643,23 @@ export default function BookDetail() {
     }
   };
 
+  // Handle "Read Now" click with transition splash
+  const handleReadNow = () => {
+    if (!book) return;
+    showSplash({
+      id: book.id,
+      title: book.title,
+      author: book.author,
+      coverImageUrl: book.coverImageUrl,
+      description: book.description,
+      rating: book.rating,
+    });
+    // Navigate after delay to let splash appear and be visible
+    setTimeout(() => {
+      setLocation(`/read/${book.id}/1`);
+    }, 400);
+  };
+
   const handleDeleteBook = async () => {
     if (!book || !user) return;
     
@@ -826,12 +848,10 @@ export default function BookDetail() {
               
               {/* Buttons positioned under the cover image */}
               <div className="p-4 flex flex-col gap-3">
-                <Link href={`/read/${book.id}/1`}>
-                  <Button className="gap-2 w-full">
-                    <Play className="w-4 h-4" />
-                    {t('books:readNow')}
-                  </Button>
-                </Link>
+                <Button className="gap-2 w-full" onClick={handleReadNow}>
+                  <Play className="w-4 h-4" />
+                  {t('books:readNow')}
+                </Button>
                 
                 <AddToShelfDialog 
                   bookId={book.id}

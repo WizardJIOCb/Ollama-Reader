@@ -41,19 +41,15 @@ set max_attempts=6
 
 echo Waiting for PostgreSQL to become ready...
 echo Testing database connection immediately...
-node db_test.js
-if %errorlevel% equ 0 (
-    goto db_ready
-)
+node scripts/db_test.js
+if %errorlevel% equ 0 goto db_ready
 
 echo Database not ready, will try 5 more times with 500ms delay...
 :wait_for_db
 set /a attempt=%attempt%+1
 echo Testing database connection attempt %attempt% of 5...
-node db_test.js
-if %errorlevel% equ 0 (
-    goto db_ready
-)
+node scripts/db_test.js
+if %errorlevel% equ 0 goto db_ready
 if %attempt% geq 5 (
     echo Database connection failed after maximum attempts.
     echo Please ensure Docker is running and PostgreSQL container is healthy.
@@ -66,7 +62,6 @@ goto wait_for_db
 
 :db_ready
 echo Database is ready!
-
 goto continue_after_db_check
 
 :create_postgres_container
@@ -109,7 +104,7 @@ if exist node_modules (
 
 REM Verify database connectivity (additional check after migrations)
 echo Verifying database connectivity after migrations...
-node db_test.js
+node scripts/db_test.js
 
 echo Completed database setup successfully.
 REM Give a small delay to allow drizzle to complete

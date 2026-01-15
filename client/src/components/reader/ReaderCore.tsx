@@ -61,6 +61,8 @@ export interface ReaderCoreHandle {
   goToChapter: (index: number) => void;
   /** Navigate to chapter and find page containing text */
   goToChapterAndFindText: (chapterIndex: number, text: string) => Promise<boolean>;
+  /** Navigate to chapter at specific character offset */
+  goToChapterAtOffset: (chapterIndex: number, charOffset: number, textToHighlight: string) => Promise<boolean>;
   /** Get current position */
   getPosition: () => Position | null;
   /** Get book content */
@@ -104,6 +106,9 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(() => 
+      typeof window !== 'undefined' && window.innerWidth < 640
+    );
 
     // Refs
     const engineRef = useRef<ReaderEngine | null>(null);
@@ -113,6 +118,15 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
 
     // Theme colors
     const themeColors = THEME_COLORS[settings.theme];
+
+    // Track mobile viewport
+    useEffect(() => {
+      const handleResize = () => {
+        setIsMobile(window.innerWidth < 640);
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     /**
      * Initialize engine and load book
@@ -456,21 +470,42 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         }
         
         const chapter = content.chapters[chapterIndex];
-        setCurrentChapter(chapter);
-        onChapterChange?.(chapter);
+        const isChapterChange = currentChapter?.index !== chapterIndex;
         
-        // Wait for pagination to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Only change chapter if different
+        if (isChapterChange) {
+          setCurrentChapter(chapter);
+          onChapterChange?.(chapter);
+          
+          // Wait for pagination to complete - multiple frames to ensure DOM is ready
+          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve(undefined));
+          }));
+          // Additional wait for pagination calculations
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
         
         // Search through all pages to find the one containing the text
         const pages = pagesRef.current;
-        const searchText = textToFind.substring(0, 50).toLowerCase(); // Search first 50 chars
+        if (pages.length === 0) {
+          return false;
+        }
+        
+        // Normalize search text - remove extra whitespace, take first 50 chars
+        const searchText = textToFind
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 50)
+          .toLowerCase();
         
         for (let i = 0; i < pages.length; i++) {
           // Strip HTML and search in plain text
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = pages[i];
-          const pageText = tempDiv.textContent?.toLowerCase() || '';
+          const pageText = (tempDiv.textContent || '')
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
           
           if (pageText.includes(searchText)) {
             setCurrentPage(i);
@@ -482,7 +517,86 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         setCurrentPage(0);
         return false;
       },
-      [content, onChapterChange]
+      [content, currentChapter, onChapterChange]
+    );
+
+    // Navigate to chapter at specific character offset
+    const goToChapterAtOffset = useCallback(
+      async (chapterIndex: number, charOffset: number, textToHighlight: string): Promise<boolean> => {
+        if (!content || chapterIndex < 0 || chapterIndex >= content.chapters.length) {
+          return false;
+        }
+        
+        const chapter = content.chapters[chapterIndex];
+        const isChapterChange = currentChapter?.index !== chapterIndex;
+        
+        // Only change chapter if different
+        if (isChapterChange) {
+          setCurrentChapter(chapter);
+          onChapterChange?.(chapter);
+          
+          // Wait for pagination to complete
+          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve(undefined));
+          }));
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+        
+        const pages = pagesRef.current;
+        if (pages.length === 0) {
+          return false;
+        }
+        
+        // Calculate approximate page based on character offset proportion
+        // First, strip HTML from chapter content to get plain text length
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = chapter.content;
+        const plainText = tempDiv.textContent || '';
+        const totalChars = plainText.length;
+        
+        if (totalChars === 0) {
+          setCurrentPage(0);
+          return false;
+        }
+        
+        // Estimate which page based on character position
+        const ratio = charOffset / totalChars;
+        const estimatedPage = Math.floor(ratio * pages.length);
+        const startPage = Math.max(0, estimatedPage - 1); // Start searching from one page before
+        
+        // Normalize highlight text for searching
+        const highlightText = textToHighlight
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+        
+        // Search from estimated page outward to find exact match
+        for (let offset = 0; offset < pages.length; offset++) {
+          // Check pages around the estimated position
+          const pagesToCheck = [startPage + offset, startPage - offset - 1];
+          
+          for (const pageIdx of pagesToCheck) {
+            if (pageIdx < 0 || pageIdx >= pages.length) continue;
+            
+            const pageTempDiv = document.createElement('div');
+            pageTempDiv.innerHTML = pages[pageIdx];
+            const pageText = (pageTempDiv.textContent || '')
+              .replace(/\s+/g, ' ')
+              .toLowerCase();
+            
+            if (pageText.includes(highlightText)) {
+              setCurrentPage(pageIdx);
+              return true;
+            }
+          }
+        }
+        
+        // Fallback to estimated page if text not found
+        setCurrentPage(Math.min(estimatedPage, pages.length - 1));
+        return false;
+      },
+      [content, currentChapter, onChapterChange]
     );
 
     // Expose methods via ref
@@ -494,6 +608,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
         goToPosition,
         goToChapter,
         goToChapterAndFindText,
+        goToChapterAtOffset,
         getPosition: () => engineRef.current?.getPosition() || null,
         getContent: () => content,
         search,
@@ -526,7 +641,7 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           return pagesBeforeCurrent + currentPage + 1; // +1 for 1-based display
         },
       }),
-      [nextPage, prevPage, goToPosition, goToChapter, goToChapterAndFindText, content, search, currentPage, totalPages, currentChapter]
+      [nextPage, prevPage, goToPosition, goToChapter, goToChapterAndFindText, goToChapterAtOffset, content, search, currentPage, totalPages, currentChapter]
     );
 
     /**
@@ -661,8 +776,8 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           color: themeColors.text,
         }}
       >
-        {/* Navigation zone - Previous page (left side) - Inside mode */}
-        {settings.viewMode === 'paginated' && settings.navigationZonePosition === 'inside' && (
+        {/* Navigation zone - Previous page (left side) - Inside mode or mobile */}
+        {settings.viewMode === 'paginated' && (isMobile || settings.navigationZonePosition === 'inside') && (
           <div
             className="absolute left-0 top-0 bottom-0 w-16 z-10 cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200"
             style={{
@@ -686,8 +801,8 @@ export const ReaderCore = forwardRef<ReaderCoreHandle, ReaderCoreProps>(
           </div>
         )}
 
-        {/* Navigation zone - Next page (right side) - Inside mode */}
-        {settings.viewMode === 'paginated' && settings.navigationZonePosition === 'inside' && (
+        {/* Navigation zone - Next page (right side) - Inside mode or mobile */}
+        {settings.viewMode === 'paginated' && (isMobile || settings.navigationZonePosition === 'inside') && (
           <div
             className="absolute right-0 top-0 bottom-0 w-16 z-10 cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200"
             style={{

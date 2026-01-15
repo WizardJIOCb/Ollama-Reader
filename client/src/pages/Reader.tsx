@@ -126,6 +126,7 @@ export default function Reader() {
   // Bookmark highlight state (for showing orange highlight when navigating to bookmark)
   const [bookmarkHighlight, setBookmarkHighlight] = useState<{
     text: string;
+    context?: string; // Surrounding text to find the correct occurrence
     chapterIndex: number;
     pageInChapter: number;
     fading: boolean;
@@ -614,6 +615,7 @@ export default function Reader() {
     // Wait a bit for the page to render after navigation
     const timer = setTimeout(() => {
       const textToFind = bookmarkHighlight.text;
+      const contextToFind = bookmarkHighlight.context;
       if (!textToFind) return;
       
       // Find the text in the document
@@ -627,25 +629,71 @@ export default function Reader() {
         null
       );
       
+      // Collect all text nodes and build a map of positions
+      const textNodes: { node: Node; start: number; end: number }[] = [];
+      let totalOffset = 0;
       let node: Node | null;
+      
       while ((node = walker.nextNode())) {
-        const textContent = node.textContent || '';
-        const index = textContent.indexOf(textToFind.substring(0, 50)); // Match first 50 chars
+        const nodeText = node.textContent || '';
+        textNodes.push({
+          node,
+          start: totalOffset,
+          end: totalOffset + nodeText.length
+        });
+        totalOffset += nodeText.length;
+      }
+      
+      // Get full text of the page
+      const fullPageText = readerContent.textContent || '';
+      
+      // Find the context in the full text to locate the exact position
+      let matchPosition = -1;
+      if (contextToFind) {
+        // Search for context (use a good portion of it for uniqueness)
+        const searchContext = contextToFind.substring(0, 60);
+        matchPosition = fullPageText.indexOf(searchContext);
         
-        if (index !== -1) {
-          try {
-            const range = document.createRange();
-            range.setStart(node, index);
-            range.setEnd(node, Math.min(index + textToFind.length, textContent.length));
-            const rect = range.getBoundingClientRect();
-            setBookmarkHighlightRect(rect);
-            return;
-          } catch (e) {
-            console.debug('Could not create range for bookmark highlight:', e);
+        if (matchPosition !== -1) {
+          // Find where the matched text appears within the context
+          const matchInContext = contextToFind.indexOf(textToFind);
+          if (matchInContext !== -1) {
+            matchPosition += matchInContext;
           }
         }
       }
-    }, 100);
+      
+      // Fallback: just find the text directly
+      if (matchPosition === -1) {
+        matchPosition = fullPageText.indexOf(textToFind);
+      }
+      
+      if (matchPosition === -1) return;
+      
+      // Find which text node contains this position
+      for (const textNode of textNodes) {
+        if (matchPosition >= textNode.start && matchPosition < textNode.end) {
+          const localStart = matchPosition - textNode.start;
+          const nodeText = textNode.node.textContent || '';
+          const localEnd = Math.min(localStart + textToFind.length, nodeText.length);
+          
+          try {
+            const range = document.createRange();
+            range.setStart(textNode.node, localStart);
+            range.setEnd(textNode.node, localEnd);
+            const rect = range.getBoundingClientRect();
+            
+            if (rect.width > 0 && rect.height > 0) {
+              setBookmarkHighlightRect(rect);
+              return;
+            }
+          } catch (e) {
+            console.debug('Could not create range for highlight:', e);
+          }
+          break;
+        }
+      }
+    }, 200);
     
     return () => clearTimeout(timer);
   }, [bookmarkHighlight]);
@@ -795,8 +843,9 @@ export default function Reader() {
       readerRef.current?.goToChapter(bookmark.chapterIndex);
     }
     
-    // Close bookmarks panel if setting is enabled
-    if (settings.autoCloseBookmarksPanel !== false) {
+    // Close bookmarks panel if setting is enabled OR on mobile (always close on mobile)
+    const isMobile = window.innerWidth < 640;
+    if (isMobile || settings.autoCloseBookmarksPanel !== false) {
       setActivePanel(null);
     }
   }, [settings.autoCloseBookmarksPanel]);
@@ -812,9 +861,46 @@ export default function Reader() {
     }
   }, []);
   
-  const handleSearchResultClick = useCallback((result: SearchResult) => {
-    readerRef.current?.goToChapter(result.chapterIndex);
-    // Don't close panel or clear search - user can continue searching
+  const handleSearchResultClick = useCallback(async (result: SearchResult) => {
+    // Navigate to chapter using character offset for precise positioning
+    // Use context (without ... markers) to find the exact location
+    const cleanContext = result.context
+      .replace(/^\.\.\./, '')
+      .replace(/\.\.\.$/, '')
+      .trim();
+    
+    await readerRef.current?.goToChapterAtOffset(
+      result.chapterIndex,
+      result.charOffset,
+      cleanContext // Use the full context for more precise page finding
+    );
+    
+    // Show highlight with fade animation (reusing bookmark highlight state)
+    // Store both matchedText and context for precise highlighting
+    setBookmarkHighlight({
+      text: result.matchedText,
+      context: cleanContext, // Store context to find the correct occurrence
+      chapterIndex: result.chapterIndex,
+      pageInChapter: 0,
+      fading: false,
+    });
+    
+    // Start fade after a short delay
+    setTimeout(() => {
+      setBookmarkHighlight(prev => prev ? { ...prev, fading: true } : null);
+    }, 500);
+    
+    // Remove highlight after fade completes
+    setTimeout(() => {
+      setBookmarkHighlight(null);
+    }, 1500);
+    
+    // Close search panel on mobile for better visibility
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      setActivePanel(null);
+    }
+    // On desktop, don't close panel - user can continue searching
   }, []);
   
   // Loading state

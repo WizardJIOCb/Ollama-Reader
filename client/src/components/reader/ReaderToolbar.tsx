@@ -89,8 +89,120 @@ export function ReaderToolbar({
 
   return (
     <div className="bg-card border-b sticky top-0 z-40">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-14 gap-2">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4">
+        {/* Mobile layout: 2 rows */}
+        <div className="sm:hidden">
+          {/* Row 1: Back button + Book title (left) + Action buttons (right) */}
+          <div className="flex items-center justify-between h-10 gap-1">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <Link href={`/book/${book.id}`}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link href={`/book/${book.id}`} className="min-w-0 flex-1">
+                <span className="text-sm font-medium truncate block">{book.title}</span>
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <Button
+                variant={isTocOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenToc}
+                title="Содержание"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={isBookmarksOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenBookmarks}
+                title="Закладки"
+              >
+                <Bookmark className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={isSearchOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenSearch}
+                title="Поиск"
+              >
+                <Search className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={isAIOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenAI}
+                title="AI Анализ"
+              >
+                <Brain className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={isChatOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 relative"
+                onClick={onOpenChat}
+                title="Чат книги"
+              >
+                <MessageCircle className="w-4 h-4" />
+                {activeReadersCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-medium rounded-full w-3 h-3 flex items-center justify-center">
+                    {activeReadersCount > 9 ? '9+' : activeReadersCount}
+                  </span>
+                )}
+              </Button>
+              <Button
+                variant={isSettingsOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenSettings}
+                title="Настройки"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Row 2: Progress with navigation arrows (centered) */}
+          <div className="flex items-center justify-center h-10 gap-1 border-t">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onPrevPage}
+              title="Предыдущая страница"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+
+            <div className="text-xs text-muted-foreground text-center leading-tight">
+              <div className="font-medium">
+                {Math.round(overallPercentage)}% книги, стр. {currentPageOverall}/{totalPagesOverall}
+              </div>
+              <div className="text-[10px] opacity-75">
+                Глава {chapterNumber}/{totalChapters}, стр. {currentPageInChapter}/{totalPagesInChapter}
+              </div>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onNextPage}
+              title="Следующая страница"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop layout: single row */}
+        <div className="hidden sm:flex items-center justify-between h-14 gap-2">
           {/* Left section: Back + Book info */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink">
             <Link href={`/book/${book.id}`}>

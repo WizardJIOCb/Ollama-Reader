@@ -12,7 +12,9 @@ import { Link } from 'wouter';
 interface NewsItem {
   id: string;
   title: string;
+  titleEn?: string;
   content: string;
+  contentEn?: string;
   author: string;
   authorId: string;
   avatarUrl?: string | null;
@@ -120,7 +122,7 @@ export default function NewsListPage() {
                 <CardTitle>
                   <Link href={`/news/${newsItem.id}`}>
                     <a className="text-primary hover:underline">
-                      {newsItem.title}
+                      {i18n.language === 'ru' ? newsItem.title : (newsItem.titleEn || newsItem.title)}
                     </a>
                   </Link>
                 </CardTitle>
@@ -151,7 +153,9 @@ export default function NewsListPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground whitespace-pre-line mb-3">{newsItem.content}</p>
+                <p className="text-muted-foreground whitespace-pre-line mb-3">
+                  {i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content)}
+                </p>
                 <div className="flex gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     👁️ {newsItem.viewCount} {t('common:views')}

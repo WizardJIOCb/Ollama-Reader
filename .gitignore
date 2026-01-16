@@ -6,3 +6,6 @@ vite.config.ts.*
 *.tar.gz
 /nul
 certs/
+.env
+.env.prod
+.env.*

@@ -613,8 +613,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Username and password are required" });
       }
       
-      // Check if user already exists
-      const existingUser = await storage.getUserByUsername(username);
+      // Check if user already exists (case-insensitive)
+      const existingUser = await storage.getUserByUsernameCaseInsensitive(username);
       if (existingUser) {
         return res.status(400).json({ error: "Username already taken" });
       }
@@ -780,7 +780,18 @@ export async function registerRoutes(
         return res.status(400).json({ error: "User ID is required" });
       }
       
-      const user = await storage.getUser(targetUserId);
+      // Check if the param is a UUID or a username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      let user;
+      if (isUuid) {
+        user = await storage.getUser(targetUserId);
+      } else {
+        // Try to find by username
+        user = await storage.getUserByUsername(targetUserId);
+      }
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -847,6 +858,51 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Update language preference error:", error);
       res.status(500).json({ error: "Failed to update language preference" });
+    }
+  });
+  
+  // Change user password
+  app.put("/api/profile/password", authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).user.userId;
+      const { currentPassword, newPassword } = req.body;
+      
+      // Validate input
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current password and new password are required" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "New password must be at least 6 characters" });
+      }
+      
+      // Get user with current password
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check if user has a password (might be OAuth-only user)
+      if (!user.password) {
+        return res.status(400).json({ error: "Cannot change password for OAuth-only accounts" });
+      }
+      
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+      
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Update password
+      await storage.updateUser(userId, { password: hashedPassword });
+      
+      res.json({ success: true, message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({ error: "Failed to change password" });
     }
   });
   
@@ -970,19 +1026,28 @@ export async function registerRoutes(
   app.get("/api/users/:userId/statistics", optionalAuthenticateToken, async (req, res) => {
     console.log("Get user statistics endpoint called");
     try {
-      const { userId } = req.params;
+      const { userId: targetUserId } = req.params;
       
-      if (!userId) {
+      if (!targetUserId) {
         return res.status(400).json({ error: "User ID is required" });
       }
       
-      // Verify user exists
-      const user = await storage.getUser(userId);
+      // Check if the param is a UUID or a username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      let user;
+      if (isUuid) {
+        user = await storage.getUser(targetUserId);
+      } else {
+        user = await storage.getUserByUsername(targetUserId);
+      }
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
       
-      const stats = await storage.getUserStatistics(userId);
+      const stats = await storage.getUserStatistics(user.id);
       
       // Return default stats if user doesn't have statistics yet
       res.json(stats || {
@@ -1781,19 +1846,28 @@ export async function registerRoutes(
   app.get("/api/shelves/user/:userId", optionalAuthenticateToken, async (req, res) => {
     console.log("Get user shelves endpoint called");
     try {
-      const { userId } = req.params;
+      const { userId: targetUserId } = req.params;
       
-      if (!userId) {
+      if (!targetUserId) {
         return res.status(400).json({ error: "User ID is required" });
       }
       
-      // Verify user exists
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ error: "User ID not found" });
+      // Check if the param is a UUID or a username
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = uuidRegex.test(targetUserId);
+      
+      let user;
+      if (isUuid) {
+        user = await storage.getUser(targetUserId);
+      } else {
+        user = await storage.getUserByUsername(targetUserId);
       }
       
-      const shelves = await storage.getShelves(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const shelves = await storage.getShelves(user.id);
       res.json(shelves);
     } catch (error) {
       console.error("Get user shelves error:", error);

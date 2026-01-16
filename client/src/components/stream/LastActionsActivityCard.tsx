@@ -237,7 +237,7 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
 
     switch (activity.target.type) {
       case 'user':
-        targetLink = `/profile/${activity.target.id}`;
+        targetLink = `/profile/${activity.target.username || activity.target.id}`;
         targetName = activity.target.username || 'Unknown User';
         break;
       case 'book':
@@ -352,7 +352,7 @@ export function LastActionsActivityCard({ activity }: LastActionsActivityCardPro
                 {(activity.user.username || 'U').charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <Link href={`/profile/${activity.user.id}`}>
+            <Link href={`/profile/${activity.user.username || activity.user.id}`}>
               <span className="text-sm font-medium hover:underline cursor-pointer">
                 {activity.user.username}
               </span>

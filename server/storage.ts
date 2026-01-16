@@ -114,6 +114,7 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByUsernameCaseInsensitive(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, userData: Partial<InsertUser>): Promise<User>;
   
@@ -262,6 +263,18 @@ export class DBStorage implements IStorage {
       return result[0];
     } catch (error) {
       console.error("Error getting user by username:", error);
+      return undefined;
+    }
+  }
+
+  async getUserByUsernameCaseInsensitive(username: string): Promise<User | undefined> {
+    try {
+      console.log("getUserByUsernameCaseInsensitive called with username:", username);
+      const result = await db.select().from(users).where(ilike(users.username, username));
+      console.log("Database query completed, result length:", result.length);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting user by username (case-insensitive):", error);
       return undefined;
     }
   }

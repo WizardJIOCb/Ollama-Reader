@@ -1580,7 +1580,7 @@ export default function Messages() {
                 </Avatar>
                 <div>
                   <Link 
-                    href={`/profile/${selectedConversation.otherUser?.id}`} 
+                    href={`/profile/${selectedConversation.otherUser?.username || selectedConversation.otherUser?.id}`} 
                     target="_blank"
                     className="font-medium hover:underline cursor-pointer"
                   >

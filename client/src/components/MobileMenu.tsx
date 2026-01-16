@@ -292,7 +292,7 @@ export function MobileMenu() {
           {user ? (
             <SheetClose asChild>
               <Link 
-                href={`/profile/${user.id}`} 
+                href={`/profile/${user.username}`} 
                 className={`px-6 py-3 text-base hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-b border-muted flex items-center gap-2 ${
                   isActive('/profile', false) ? 'font-semibold bg-accent/10' : ''
                 }`}

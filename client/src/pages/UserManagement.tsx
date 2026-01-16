@@ -408,7 +408,7 @@ const UserManagement: React.FC = () => {
                   </TableCell>
                   <TableCell className="font-medium">
                     <a
-                      href={`/profile/${user.id}`}
+                      href={`/profile/${user.username}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"

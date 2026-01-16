@@ -194,7 +194,7 @@ export function Navbar() {
             )}
             {user ? (
               <Link 
-                href={`/profile/${user.id}`} 
+                href={`/profile/${user.username}`} 
                 className={`flex items-center gap-2 text-sm hover:text-primary transition-colors cursor-pointer ${
                   isActive('/profile', false) ? 'font-semibold' : ''
                 }`}

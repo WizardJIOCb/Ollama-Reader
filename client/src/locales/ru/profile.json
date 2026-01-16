@@ -25,5 +25,14 @@
   "english": "English",
   "russian": "Русский",
   "showAll": "Показать все",
-  "collapse": "Свернуть"
+  "collapse": "Свернуть",
+  "changePassword": "Сменить пароль",
+  "currentPassword": "Текущий пароль",
+  "newPassword": "Новый пароль",
+  "confirmNewPassword": "Подтвердите новый пароль",
+  "passwordChanged": "Пароль успешно изменён",
+  "passwordMismatch": "Новые пароли не совпадают",
+  "passwordTooShort": "Пароль должен содержать минимум 6 символов",
+  "currentPasswordRequired": "Введите текущий пароль",
+  "newPasswordRequired": "Введите новый пароль"
 }

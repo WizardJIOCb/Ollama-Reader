@@ -52,10 +52,10 @@ export class OAuthService {
       // Create username from email or display name
       let username = email ? email.split('@')[0] : displayName || `${provider}_${providerUserId}`;
       
-      // Ensure username is unique
+      // Ensure username is unique (case-insensitive check)
       let uniqueUsername = username;
       let counter = 1;
-      while (await storage.getUserByUsername(uniqueUsername)) {
+      while (await storage.getUserByUsernameCaseInsensitive(uniqueUsername)) {
         uniqueUsername = `${username}_${counter}`;
         counter++;
       }

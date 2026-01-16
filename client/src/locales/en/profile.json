@@ -25,5 +25,14 @@
   "english": "English",
   "russian": "Русский",
   "showAll": "Show All",
-  "collapse": "Collapse"
+  "collapse": "Collapse",
+  "changePassword": "Change Password",
+  "currentPassword": "Current Password",
+  "newPassword": "New Password",
+  "confirmNewPassword": "Confirm New Password",
+  "passwordChanged": "Password changed successfully",
+  "passwordMismatch": "New passwords do not match",
+  "passwordTooShort": "Password must be at least 6 characters",
+  "currentPasswordRequired": "Current password is required",
+  "newPasswordRequired": "New password is required"
 }

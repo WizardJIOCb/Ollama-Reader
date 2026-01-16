@@ -1908,7 +1908,7 @@ export default function Reader() {
                                         {msg.user?.username || 'Unknown'}
                                       </button>
                                       <a
-                                        href={`/profile/${msg.userId}`}
+                                        href={`/profile/${msg.user?.username || msg.userId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
@@ -2060,7 +2060,7 @@ export default function Reader() {
                                     <p className="text-xs text-muted-foreground">{t('bookChat.readingBook')}</p>
                                   </div>
                                   <a
-                                    href={`/profile/${onlineUser.id}`}
+                                    href={`/profile/${onlineUser.username || onlineUser.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}

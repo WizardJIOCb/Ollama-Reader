@@ -387,7 +387,7 @@ export function GroupMembersModal({ groupId, isOpen, onClose, userRole, currentU
                   >
                     <div className="flex items-center gap-3">
                       <Link
-                        href={`/profile/${member.userId}`}
+                        href={`/profile/${member.username}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -399,7 +399,7 @@ export function GroupMembersModal({ groupId, isOpen, onClose, userRole, currentU
                       <div>
                         <div className="flex items-center gap-2">
                           <Link
-                            href={`/profile/${member.userId}`}
+                            href={`/profile/${member.username}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-medium hover:underline cursor-pointer"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useRoute, Link } from 'wouter';
+import { useRoute, Link, useLocation } from 'wouter';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,12 +33,14 @@ import {
   ChevronRight,
   LogOut,
   Pencil,
-  Globe
+  Globe,
+  Key
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface User {
   id: string;
@@ -131,9 +133,24 @@ export default function Profile() {
   const [expandedShelves, setExpandedShelves] = useState<Record<string, boolean>>({});
   const recentlyReadScrollRef = useRef<HTMLDivElement>(null);
   const shelfScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [, setLocation] = useLocation();
+  
+  // Password change state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChanging, setPasswordChanging] = useState(false);
+
+  // Redirect to own profile if no userId specified and user is logged in
+  useEffect(() => {
+    if (!userId && currentUser?.username) {
+      setLocation(`/profile/${currentUser.username}`, { replace: true });
+    }
+  }, [userId, currentUser, setLocation]);
 
   // Determine if viewing own profile
-  const isOwnProfile = currentUser?.id === userId;
+  const isOwnProfile = currentUser?.id === userId || currentUser?.username === userId;
   
   // Sync selectedLanguage with current user's language preference
   useEffect(() => {
@@ -461,7 +478,7 @@ export default function Profile() {
     if (!profile) return;
     
     try {
-      const profileUrl = `${window.location.origin}/profile/${profile.id}`;
+      const profileUrl = `${window.location.origin}/profile/${profile.username}`;
       await navigator.clipboard.writeText(profileUrl);
       
       toast({
@@ -474,6 +491,90 @@ export default function Profile() {
         description: err instanceof Error ? err.message : t('notifications:error.copyFailed'),
         variant: "destructive"
       });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!currentPassword.trim()) {
+      toast({
+        title: t('notifications:error.title'),
+        description: t('profile:currentPasswordRequired'),
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!newPassword.trim()) {
+      toast({
+        title: t('notifications:error.title'),
+        description: t('profile:newPasswordRequired'),
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast({
+        title: t('notifications:error.title'),
+        description: t('profile:passwordTooShort'),
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: t('notifications:error.title'),
+        description: t('profile:passwordMismatch'),
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setPasswordChanging(true);
+      const token = localStorage.getItem('authToken');
+      
+      const apiUrl = import.meta.env.DEV 
+        ? 'http://localhost:5001/api/profile/password'
+        : '/api/profile/password';
+      
+      const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to change password');
+      }
+      
+      toast({
+        title: t('notifications:success.title'),
+        description: t('profile:passwordChanged')
+      });
+      
+      // Reset form and close dialog
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordDialogOpen(false);
+    } catch (err) {
+      toast({
+        title: t('notifications:error.title'),
+        description: err instanceof Error ? err.message : t('notifications:error.updateFailed'),
+        variant: "destructive"
+      });
+    } finally {
+      setPasswordChanging(false);
     }
   };
 
@@ -726,8 +827,12 @@ export default function Profile() {
                           <Globe className="w-4 h-4 mr-2" />
                           {t('profile:languagePreference')}
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)}>
+                          <Key className="w-4 h-4 mr-2" />
+                          {t('profile:changePassword')}
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={logout} className="text-red-600">
+                        <DropdownMenuItem onClick={() => { logout(); setLocation('/login'); }} className="text-red-600">
                           <LogOut className="w-4 h-4 mr-2" />
                           {t('common:logout')}
                         </DropdownMenuItem>
@@ -1045,6 +1150,60 @@ export default function Profile() {
           </section>
         )}
       </div>
+      
+      {/* Password Change Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('profile:changePassword')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="current-password">{t('profile:currentPassword')}</Label>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">{t('profile:newPassword')}</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">{t('profile:confirmNewPassword')}</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => {
+              setPasswordDialogOpen(false);
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+            }}>
+              {t('profile:cancel')}
+            </Button>
+            <Button onClick={handleChangePassword} disabled={passwordChanging}>
+              {passwordChanging ? t('common:loading') : t('profile:saveProfile')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

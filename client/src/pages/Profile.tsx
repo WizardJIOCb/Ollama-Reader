@@ -112,7 +112,7 @@ interface UserProfile {
 export default function Profile() {
   const [match, params] = useRoute('/profile/:userId');
   const { toast } = useToast();
-  const { user: currentUser, refreshUser, logout } = useAuth();
+  const { user: currentUser, refreshUser, logout, isLoading: authLoading } = useAuth();
   const userId = params?.userId;
   const { t, i18n } = useTranslation(['profile', 'notifications', 'common']);
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
@@ -583,6 +583,8 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!userId) return;
+      // Wait for auth to finish loading before fetching profile
+      if (authLoading) return;
       
       try {
         setLoading(true);
@@ -739,10 +741,17 @@ export default function Profile() {
     };
     
     fetchProfile();
-  }, [userId, toast]);
+  }, [userId, toast, authLoading, currentUser]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">{t('profile:loading')}</div>;
+    return (
+      <div className="min-h-screen bg-background font-sans pb-20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>{t('profile:loading')}</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !profile) {

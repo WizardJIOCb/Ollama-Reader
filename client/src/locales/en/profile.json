@@ -23,5 +23,7 @@
   "languagePreference": "Language Preference",
   "languageDescription": "Choose your preferred language for the interface",
   "english": "English",
-  "russian": "Русский"
+  "russian": "Русский",
+  "showAll": "Show All",
+  "collapse": "Collapse"
 }

@@ -6,10 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { AddToShelfDialog } from '@/components/AddToShelfDialog';
 import { BookCard } from '@/components/BookCard';
-import { LogoutButton } from '@/components/LogoutButton';
-import { useAuth } from '@/lib/auth'; // Added import for auth context
+import { useAuth } from '@/lib/auth';
 import { 
   BookOpen, 
   Type, 
@@ -22,7 +28,12 @@ import {
   MoreVertical,
   User,
   Camera,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Pencil,
+  Globe
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
@@ -99,7 +110,7 @@ interface UserProfile {
 export default function Profile() {
   const [match, params] = useRoute('/profile/:userId');
   const { toast } = useToast();
-  const { user: currentUser, refreshUser } = useAuth(); // Get current authenticated user
+  const { user: currentUser, refreshUser, logout } = useAuth();
   const userId = params?.userId;
   const { t, i18n } = useTranslation(['profile', 'notifications', 'common']);
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
@@ -113,6 +124,13 @@ export default function Profile() {
   const [editFullName, setEditFullName] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const languageSectionRef = useRef<HTMLDivElement>(null);
+  
+  // State for expanded book lists (carousel vs full view)
+  const [expandedRecentlyRead, setExpandedRecentlyRead] = useState(false);
+  const [expandedShelves, setExpandedShelves] = useState<Record<string, boolean>>({});
+  const recentlyReadScrollRef = useRef<HTMLDivElement>(null);
+  const shelfScrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Determine if viewing own profile
   const isOwnProfile = currentUser?.id === userId;
@@ -634,115 +652,145 @@ export default function Profile() {
     return new Intl.NumberFormat('ru-RU').format(num);
   };
 
+  // Format bio text: convert URLs to clickable links and newlines to <br/>
+  const formatBioHtml = (text: string) => {
+    // First escape any HTML
+    let result = text
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // URL regex pattern - matches http(s):// URLs and www. URLs
+    const urlPattern = /(https?:\/\/[^\s<]+)/g;
+    const wwwPattern = /(^|[\s])www\.([^\s<]+)/g;
+    
+    // Convert https?:// URLs to links
+    result = result.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>');
+    
+    // Convert www. URLs to links (prepend https://)
+    result = result.replace(wwwPattern, '$1<a href="https://www.$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">www.$2</a>');
+    
+    // Convert newlines to <br/>
+    return result.replace(/\n/g, '<br/>');
+  };
+
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header Navigation */}
-        <header className="mb-8">
-          {isOwnProfile && (
-            <div className="flex flex-col md:flex-row gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleAvatarUpload}
-                className="hidden"
-              />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                className="gap-2 w-full md:w-auto"
-              >
-                <Camera className="w-4 h-4" />
-                {avatarUploading ? t('common:uploading') : profile.avatar ? t('profile:changeAvatar') : t('profile:uploadAvatar')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleEditProfile} className="w-full md:w-auto">
-                {t('profile:editProfile')}
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2 cursor-pointer w-full md:w-auto" onClick={handleShareProfile}>
-                <Share2 className="w-4 h-4" />
-                {t('profile:shareProfile')}
-              </Button>
-              <LogoutButton />
-            </div>
-          )}
-        </header>
+        {/* Hidden file input for avatar upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleAvatarUpload}
+          className="hidden"
+        />
 
         {/* Profile Header */}
         <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex flex-col items-start relative group">
-              <Avatar className="w-32 h-32 border-4 border-background shadow-xl flex-shrink-0">
+          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+            <div className="flex flex-col items-center md:items-start relative group">
+              <Avatar className="w-48 h-48 border-4 border-background shadow-xl flex-shrink-0">
                 <AvatarImage src={profile.avatar} alt={profile.name} />
                 <AvatarFallback className="bg-muted flex items-center justify-center">
-                  <User className="w-16 h-16 text-muted-foreground" />
+                  <User className="w-24 h-24 text-muted-foreground" />
                 </AvatarFallback>
               </Avatar>
             </div>
             
-            <div className="flex-1 space-y-4 w-full">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h1 className="text-3xl font-serif font-bold">{profile.name}</h1>
+            <div className="flex-1 space-y-2 w-full text-center md:text-left">
+              <div>
+                <h1 className="text-3xl font-serif font-bold">{profile.name}</h1>
+                <div className="flex items-center justify-center md:justify-start gap-2">
                   <p className="text-muted-foreground font-medium">{profile.username}</p>
+                  {isOwnProfile && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full h-7 w-7">
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => fileInputRef.current?.click()} disabled={avatarUploading}>
+                          <Camera className="w-4 h-4 mr-2" />
+                          {profile.avatar ? t('profile:changeAvatar') : t('profile:uploadAvatar')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleEditProfile}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          {t('profile:editProfile')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleShareProfile}>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          {t('profile:shareProfile')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTimeout(() => languageSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)}>
+                          <Globe className="w-4 h-4 mr-2" />
+                          {t('profile:languagePreference')}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={logout} className="text-red-600">
+                          <LogOut className="w-4 h-4 mr-2" />
+                          {t('common:logout')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   {!isOwnProfile && (
                     <Link href={`/messages?user=${profile.id}`} className="cursor-pointer">
-                      <Button variant="ghost" size="icon" className="-ml-2 mt-1 p-1">
-                        <Mail className="w-5 h-5" />
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <Mail className="w-4 h-4" />
                       </Button>
                     </Link>
                   )}
                 </div>
               </div>
+              
+              {/* Bio - displayed to the right of avatar */}
+              {!isEditing && profile.bio.trim() && (
+                <div 
+                  className="prose prose-sm dark:prose-invert text-foreground/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: formatBioHtml(profile.bio) }}
+                />
+              )}
             </div>
           </div>
           
-          {/* Bio with HTML rendering - full width below avatar and user info */}
-          {(isEditing || profile.bio.trim()) && (
+          {/* Bio editing form - full width below avatar and user info */}
+          {isEditing && (
             <div className="mt-6">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">{t('profile:fullName')}</label>
-                    <input
-                      type="text"
-                      value={editFullName}
-                      onChange={(e) => setEditFullName(e.target.value)}
-                      className="w-full p-2 border rounded-md"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">{t('profile:bio')}</label>
-                    <textarea
-                      value={editBio}
-                      onChange={(e) => setEditBio(e.target.value)}
-                      className="w-full p-2 border rounded-md min-h-[120px]"
-                      placeholder={t('profile:bioPlaceholder')}
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={handleCancelEdit}>
-                      {t('profile:cancel')}
-                    </Button>
-                    <Button onClick={handleSaveProfile}>
-                      {t('profile:saveProfile')}
-                    </Button>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">{t('profile:fullName')}</label>
+                  <input
+                    type="text"
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  />
                 </div>
-              ) : (
-                <div 
-                  className="prose prose-sm dark:prose-invert text-foreground/90 leading-relaxed bg-muted/30 p-6 rounded-lg border w-full"
-                  dangerouslySetInnerHTML={{ __html: profile.bio.replace(/\n/g, '<br/>') }}
-                />
-              )}
+                <div>
+                  <label className="block text-sm font-medium mb-2">{t('profile:bio')}</label>
+                  <textarea
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    className="w-full p-2 border rounded-md min-h-[120px]"
+                    placeholder={t('profile:bioPlaceholder')}
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={handleCancelEdit}>
+                    {t('profile:cancel')}
+                  </Button>
+                  <Button onClick={handleSaveProfile}>
+                    {t('profile:saveProfile')}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+        {/* Stats Grid - Hidden for now */}
+        {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
           <div className="bg-card border p-6 rounded-xl flex items-center gap-4 shadow-sm">
             <div className="p-3 bg-blue-500/10 text-blue-600 rounded-full">
               <BookOpen className="w-6 h-6" />
@@ -772,11 +820,209 @@ export default function Profile() {
               <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('profile:stats.lettersRead')}</p>
             </div>
           </div>
-        </div>
+        </div> */}
+
+        {/* Recently Read */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-serif font-bold flex items-center gap-2">
+              <ClockIcon className="w-5 h-5 text-muted-foreground" />
+              {t('profile:recentlyRead')}
+            </h2>
+            {profile.recentlyReadIds.length > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setExpandedRecentlyRead(!expandedRecentlyRead)}
+              >
+                {expandedRecentlyRead ? t('profile:collapse') : t('profile:showAll')}
+              </Button>
+            )}
+          </div>
+          {profile.recentlyReadIds.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('profile:noRecentBooks')}</p>
+          ) : expandedRecentlyRead ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {profile.recentlyReadIds.map((bookId: string) => {
+                let book = null;
+                for (const shelf of profile.shelves) {
+                  if (shelf.books) {
+                    book = shelf.books.find(b => b.id === bookId);
+                    if (book) break;
+                  }
+                }
+                if (!book) return null;
+                return (
+                  <BookCard 
+                    key={book.id} 
+                    book={book} 
+                    variant="detailed"
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="relative group">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  if (recentlyReadScrollRef.current) {
+                    recentlyReadScrollRef.current.scrollBy({ left: -400, behavior: 'smooth' });
+                  }
+                }}
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <div 
+                ref={recentlyReadScrollRef}
+                className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 scroll-smooth"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {profile.recentlyReadIds.map((bookId: string) => {
+                  let book = null;
+                  for (const shelf of profile.shelves) {
+                    if (shelf.books) {
+                      book = shelf.books.find(b => b.id === bookId);
+                      if (book) break;
+                    }
+                  }
+                  if (!book) return null;
+                  return (
+                    <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(33.333%-11px)]">
+                      <BookCard 
+                        book={book} 
+                        variant="detailed"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  if (recentlyReadScrollRef.current) {
+                    recentlyReadScrollRef.current.scrollBy({ left: 400, behavior: 'smooth' });
+                  }
+                }}
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
+        </section>
+
+        {/* User's Shelves */}
+        <section>
+          {(() => {
+            // Filter shelves based on profile ownership
+            // Show all shelves if viewing own profile, otherwise hide empty shelves
+            const filteredShelves = isOwnProfile 
+              ? profile.shelves 
+              : profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0);
+            
+            // Count non-empty shelves for the counter
+            const nonEmptyShelfCount = profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0).length;
+            
+            return (
+              <>
+                <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
+                  <LibraryIcon className="w-5 h-5 text-muted-foreground" />
+                  {t('profile:shelves')} [{nonEmptyShelfCount}]
+                </h2>
+                <div className="space-y-10">
+                  {filteredShelves.map((shelf: ProfileShelf) => {
+                    const isExpanded = expandedShelves[shelf.id] || false;
+                    
+                    return (
+                      <div key={shelf.id}>
+                        <div className="flex items-baseline justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-serif text-lg font-bold">{shelf.name}</h3>
+                            <Badge variant="secondary" className="rounded-full">{shelf.bookIds.length}</Badge>
+                          </div>
+                          {shelf.bookIds.length > 0 && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setExpandedShelves(prev => ({ ...prev, [shelf.id]: !isExpanded }))}
+                            >
+                              {isExpanded ? t('profile:collapse') : t('profile:showAll')}
+                            </Button>
+                          )}
+                        </div>
+                    
+                        {shelf.bookIds.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">{t('profile:emptyShelf')}</p>
+                        ) : isExpanded ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {shelf.books?.map((book: Book) => (
+                              <BookCard 
+                                key={book.id} 
+                                book={book} 
+                                variant="detailed"
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="relative group">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                const scrollEl = shelfScrollRefs.current[shelf.id];
+                                if (scrollEl) {
+                                  scrollEl.scrollBy({ left: -400, behavior: 'smooth' });
+                                }
+                              }}
+                            >
+                              <ChevronLeft className="w-5 h-5" />
+                            </Button>
+                            <div 
+                              ref={(el) => { shelfScrollRefs.current[shelf.id] = el; }}
+                              className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 scroll-smooth"
+                              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                              {shelf.books?.map((book: Book) => (
+                                <div key={book.id} className="flex-shrink-0 w-[calc(85%-8px)] md:w-[calc(33.333%-11px)]">
+                                  <BookCard 
+                                    book={book} 
+                                    variant="detailed"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                const scrollEl = shelfScrollRefs.current[shelf.id];
+                                if (scrollEl) {
+                                  scrollEl.scrollBy({ left: 400, behavior: 'smooth' });
+                                }
+                              }}
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+        </section>
 
         {/* Language Preference Section - Only for own profile */}
         {isOwnProfile && (
-          <section className="mb-12">
+          <section className="mt-12" ref={languageSectionRef}>
             <div className="bg-card border p-6 rounded-xl shadow-sm">
               <h2 className="text-lg font-serif font-bold mb-2">{t('profile:languagePreference')}</h2>
               <p className="text-sm text-muted-foreground mb-4">{t('profile:languageDescription')}</p>
@@ -798,91 +1044,6 @@ export default function Profile() {
             </div>
           </section>
         )}
-
-        {/* Recently Read */}
-        <section className="mb-12">
-          <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
-            <ClockIcon className="w-5 h-5 text-muted-foreground" />
-            {t('profile:recentlyRead')}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {profile.recentlyReadIds.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('profile:noRecentBooks')}</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profile.recentlyReadIds.map((bookId: string) => {
-                  // Find the book in the shelves
-                  let book = null;
-                  for (const shelf of profile.shelves) {
-                    if (shelf.books) {
-                      book = shelf.books.find(b => b.id === bookId);
-                      if (book) break;
-                    }
-                  }
-                  
-                  if (!book) return null;
-                  
-                  return (
-                    <BookCard 
-                      key={book.id} 
-                      book={book} 
-                      variant="detailed"
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* User's Shelves */}
-        <section>
-          {(() => {
-            // Filter shelves based on profile ownership
-            // Show all shelves if viewing own profile, otherwise hide empty shelves
-            const filteredShelves = isOwnProfile 
-              ? profile.shelves 
-              : profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0);
-            
-            // Count non-empty shelves for the counter
-            const nonEmptyShelfCount = profile.shelves.filter((shelf: ProfileShelf) => shelf.bookIds.length > 0).length;
-            
-            return (
-              <>
-                <h2 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
-                  <LibraryIcon className="w-5 h-5 text-muted-foreground" />
-                  {t('profile:shelves')} [{nonEmptyShelfCount}]
-                </h2>
-                <div className="space-y-8">
-                  {filteredShelves.map((shelf: ProfileShelf) => (
-              <div key={shelf.id} className="bg-card/50 border rounded-xl p-6">
-                <div className="flex items-baseline justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-serif text-lg font-bold">{shelf.name}</h3>
-                    <Badge variant="secondary" className="rounded-full">{shelf.bookIds.length}</Badge>
-                  </div>
-                </div>
-            
-                {shelf.bookIds.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t('profile:emptyShelf')}</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {shelf.books?.map((book: Book) => (
-                      <BookCard 
-                        key={book.id} 
-                        book={book} 
-                        variant="detailed"
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
-        </section>
       </div>
     </div>
   );

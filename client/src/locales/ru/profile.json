@@ -23,5 +23,7 @@
   "languagePreference": "Язык интерфейса",
   "languageDescription": "Выберите предпочитаемый язык интерфейса",
   "english": "English",
-  "russian": "Русский"
+  "russian": "Русский",
+  "showAll": "Показать все",
+  "collapse": "Свернуть"
 }

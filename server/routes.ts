@@ -11,7 +11,7 @@ import fs from "fs";
 import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
-import oauthRoutes from "./oauth/routes";
+import { createOAuthRoutes } from "./oauth/routes";
 
 // Import db from storage module
 import { db } from './storage';
@@ -236,10 +236,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   console.log("Registering API routes...");
   
-  // Register OAuth routes WITHOUT /api prefix (they handle their own /auth prefix)
-  app.use(oauthRoutes);
-  
-  // Initialize Socket.io server
+  // Initialize Socket.io server (moved up so OAuth routes can access it)
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: "*",
@@ -557,6 +554,10 @@ export async function registerRoutes(
   
   // Store io instance globally so we can use it in route handlers
   (app as any).io = io;
+  
+  // Register OAuth routes WITHOUT /api prefix (they handle their own /auth prefix)
+  // Must be after io is attached so registration activity can be broadcasted
+  app.use(createOAuthRoutes(app));
   
   // put application routes here
   // prefix all routes with /api

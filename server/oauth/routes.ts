@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Express } from 'express';
 import passport from 'passport';
 import jwt from 'jsonwebtoken';
 import { createState, validateAndConsumeState, generateCodeVerifier, generateCodeChallenge } from './stateManager';
@@ -9,10 +9,9 @@ import { verifyTelegramAuth, getTelegramUserInfo } from './providers/telegramAut
 import { setupGoogleStrategy } from './strategies/googleStrategy';
 import { setupDiscordStrategy } from './strategies/discordStrategy';
 import { setupTwitterStrategy } from './strategies/twitterStrategy';
+import { storage } from '../storage';
 import type { OAuthProvider } from '../config/oauth';
 import type { Request, Response } from 'express';
-
-const router = Router();
 
 // Initialize Passport strategies
 setupGoogleStrategy();
@@ -23,6 +22,60 @@ setupTwitterStrategy();
 function generateToken(userId: string): string {
   return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 }
+
+// Helper to create registration activity and broadcast via WebSocket
+async function createRegistrationActivity(app: Express, user: any) {
+  try {
+    console.log('[OAuth Registration] Creating user action for registration event');
+    const action = await storage.createUserAction({
+      userId: user.id,
+      actionType: 'user_registered',
+      targetType: 'user',
+      targetId: user.id,
+      metadata: { username: user.username }
+    });
+    console.log('[OAuth Registration] User action created:', action?.id);
+    
+    // Broadcast registration event via WebSocket
+    if ((app as any).io && action) {
+      const io = (app as any).io;
+      console.log('[OAuth Registration] Broadcasting registration event to stream:global');
+      
+      const eventData = {
+        id: action.id,
+        type: 'user_action',
+        action_type: 'user_registered',
+        entityId: action.id,
+        userId: user.id,
+        user: {
+          id: user.id,
+          username: user.username,
+          avatar_url: user.avatarUrl || null
+        },
+        target: {
+          type: 'user',
+          id: user.id,
+          username: user.username,
+          avatar_url: user.avatarUrl || null
+        },
+        metadata: { username: user.username },
+        createdAt: action.createdAt,
+        timestamp: action.createdAt.toISOString()
+      };
+      
+      // Broadcast to both global stream and last-actions room
+      io.to('stream:global').emit('stream:last-action', eventData);
+      io.to('last-actions').emit('last-action', eventData);
+      console.log('[OAuth Registration] ✅ Registration event broadcasted');
+    }
+  } catch (error) {
+    console.error('[OAuth Registration] Failed to create registration activity:', error);
+    // Don't fail the OAuth flow if activity creation fails
+  }
+}
+
+export function createOAuthRoutes(app: Express) {
+  const router = Router();
 
 // Google OAuth
 router.get('/auth/google', async (req: Request, res: Response) => {
@@ -45,7 +98,7 @@ router.get('/auth/callback/google', async (req: Request, res: Response) => {
 
     try {
       const email = authData.profile.emails?.[0]?.value;
-      const { user } = await oauthService.handleOAuthCallback({
+      const { user, isNewUser } = await oauthService.handleOAuthCallback({
         provider: 'google',
         providerUserId: authData.profile.id,
         email,
@@ -53,6 +106,11 @@ router.get('/auth/callback/google', async (req: Request, res: Response) => {
         accessToken: authData.accessToken,
         refreshToken: authData.refreshToken,
       });
+
+      // Create registration activity for new users
+      if (isNewUser) {
+        await createRegistrationActivity(app, user);
+      }
 
       const token = generateToken(user.id);
       res.redirect(`/auth/callback?token=${token}`);
@@ -83,7 +141,7 @@ router.get('/auth/callback/discord', async (req: Request, res: Response) => {
     }
 
     try {
-      const { user } = await oauthService.handleOAuthCallback({
+      const { user, isNewUser } = await oauthService.handleOAuthCallback({
         provider: 'discord',
         providerUserId: authData.profile.id,
         email: authData.profile.email,
@@ -91,6 +149,11 @@ router.get('/auth/callback/discord', async (req: Request, res: Response) => {
         accessToken: authData.accessToken,
         refreshToken: authData.refreshToken,
       });
+
+      // Create registration activity for new users
+      if (isNewUser) {
+        await createRegistrationActivity(app, user);
+      }
 
       const token = generateToken(user.id);
       res.redirect(`/auth/callback?token=${token}`);
@@ -122,13 +185,18 @@ router.get('/auth/callback/twitter', async (req: Request, res: Response) => {
 
     try {
       const email = authData.profile.emails?.[0]?.value;
-      const { user } = await oauthService.handleOAuthCallback({
+      const { user, isNewUser } = await oauthService.handleOAuthCallback({
         provider: 'twitter',
         providerUserId: authData.profile.id,
         email,
         displayName: authData.profile.displayName,
         accessToken: authData.accessToken,
       });
+
+      // Create registration activity for new users
+      if (isNewUser) {
+        await createRegistrationActivity(app, user);
+      }
 
       const token = generateToken(user.id);
       res.redirect(`/auth/callback?token=${token}`);
@@ -198,7 +266,7 @@ router.get('/auth/callback/vk', async (req: Request, res: Response) => {
       return res.redirect('/login?error=oauth_failed');
     }
 
-    const { user } = await oauthService.handleOAuthCallback({
+    const { user, isNewUser } = await oauthService.handleOAuthCallback({
       provider: 'vk',
       providerUserId: userId.toString(),
       email: userData.email || tokenData.email,
@@ -207,6 +275,11 @@ router.get('/auth/callback/vk', async (req: Request, res: Response) => {
       refreshToken: tokenData.refresh_token,
       tokenExpiresAt,
     });
+
+    // Create registration activity for new users
+    if (isNewUser) {
+      await createRegistrationActivity(app, user);
+    }
 
     const token = generateToken(user.id);
     res.redirect(`/auth/callback?token=${token}`);
@@ -246,7 +319,7 @@ router.get('/auth/callback/yandex', async (req: Request, res: Response) => {
 
     const tokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
-    const { user } = await oauthService.handleOAuthCallback({
+    const { user, isNewUser } = await oauthService.handleOAuthCallback({
       provider: 'yandex',
       providerUserId: userInfo.id,
       email: userInfo.default_email,
@@ -255,6 +328,11 @@ router.get('/auth/callback/yandex', async (req: Request, res: Response) => {
       refreshToken: tokenData.refresh_token,
       tokenExpiresAt,
     });
+
+    // Create registration activity for new users
+    if (isNewUser) {
+      await createRegistrationActivity(app, user);
+    }
 
     const token = generateToken(user.id);
     res.redirect(`/auth/callback?token=${token}`);
@@ -275,12 +353,17 @@ router.post('/auth/telegram', async (req: Request, res: Response) => {
 
     const userInfo = getTelegramUserInfo(authData);
 
-    const { user } = await oauthService.handleOAuthCallback({
+    const { user, isNewUser } = await oauthService.handleOAuthCallback({
       provider: 'telegram',
       providerUserId: userInfo.id,
       displayName: `${userInfo.firstName} ${userInfo.lastName || ''}`.trim(),
       accessToken: authData.hash,
     });
+
+    // Create registration activity for new users
+    if (isNewUser) {
+      await createRegistrationActivity(app, user);
+    }
 
     const token = generateToken(user.id);
     res.json({ token });
@@ -336,4 +419,5 @@ router.delete('/auth/unlink/:provider', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+  return router;
+}

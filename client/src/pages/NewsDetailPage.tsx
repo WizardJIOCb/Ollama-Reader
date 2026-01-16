@@ -382,19 +382,16 @@ const NewsDetailPage: React.FC = () => {
               <span>{new Date(newsItem.createdAt).toLocaleDateString()}</span>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                {newsItem.viewCount} {t('common:views')}
-              </Badge>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <MessageCircle className="w-3 h-3" />
-                {newsItem.commentCount} {t('common:comments')}
-              </Badge>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Heart className="w-3 h-3" />
-                {newsItem.reactionCount} {t('common:reactions')}
-              </Badge>
+            <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                👁️ {newsItem.viewCount}
+              </span>
+              <span className="flex items-center gap-1">
+                💬 {newsItem.commentCount}
+              </span>
+              <span className="flex items-center gap-1">
+                ❤️ {newsItem.reactionCount}
+              </span>
             </div>
           </CardHeader>
           <CardContent>

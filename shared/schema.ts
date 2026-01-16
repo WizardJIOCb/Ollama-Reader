@@ -274,6 +274,7 @@ export const news = pgTable("news", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  slug: varchar("slug", { length: 255 }),
   authorId: varchar("author_id").notNull().references(() => users.id),
   published: boolean("published").default(false),
   publishedAt: timestamp("published_at"),

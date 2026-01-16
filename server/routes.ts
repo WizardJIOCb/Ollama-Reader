@@ -1090,7 +1090,7 @@ export async function registerRoutes(
               author_id: userId,
               author_name: user.username || user.fullName || 'Anonymous',
               author_avatar: user.avatarUrl || null,
-              news_id: id,
+              news_id: newsItem.slug || id,
               news_title: newsItem.title,
               reactions: [] // Start with empty reactions array
             },
@@ -1381,7 +1381,7 @@ export async function registerRoutes(
     console.log("Create news endpoint called");
     try {
       const userId = (req as any).user.userId;
-      const { title, content, published } = req.body;
+      const { title, slug, content, published } = req.body;
       
       if (!title || !content) {
         return res.status(400).json({ error: "Title and content are required" });
@@ -1389,6 +1389,7 @@ export async function registerRoutes(
       
       const newsData = {
         title,
+        slug: slug || undefined,
         content,
         authorId: userId,
         published: published || false,
@@ -1467,7 +1468,7 @@ export async function registerRoutes(
     console.log("Update news endpoint called");
     try {
       const { id } = req.params;
-      const { title, content, published } = req.body;
+      const { title, slug, content, published } = req.body;
       
       const existingNews = await storage.getNews(id);
       if (!existingNews) {
@@ -1476,6 +1477,7 @@ export async function registerRoutes(
       
       const newsData = {
         title: title !== undefined ? title : existingNews.title,
+        slug: slug !== undefined ? (slug || undefined) : existingNews.slug,
         content: content !== undefined ? content : existingNews.content,
         published: published !== undefined ? published : existingNews.published,
         publishedAt: (() => {

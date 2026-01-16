@@ -13,6 +13,7 @@ interface NewsItem {
   id: string;
   title: string;
   content: string;
+  slug?: string;
   author: string;
   authorId: string;
   avatarUrl?: string | null;
@@ -30,6 +31,7 @@ const NewsManagement: React.FC = () => {
   
   // Form state
   const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
   const [content, setContent] = useState('');
   const [published, setPublished] = useState(false);
   const isInitialMount = useRef(true);
@@ -62,6 +64,7 @@ const NewsManagement: React.FC = () => {
     try {
       const newsData = {
         title,
+        slug: slug || undefined,
         content,
         published
       };
@@ -91,6 +94,7 @@ const NewsManagement: React.FC = () => {
   const handleEdit = (newsItem: NewsItem) => {
     setEditingNews(newsItem);
     setTitle(newsItem.title);
+    setSlug(newsItem.slug || '');
     setContent(newsItem.content);
     setPublished(newsItem.published);
     setShowForm(true);
@@ -112,6 +116,7 @@ const NewsManagement: React.FC = () => {
 
   const resetForm = () => {
     setTitle('');
+    setSlug('');
     setContent('');
     setPublished(false);
     setEditingNews(null);
@@ -166,6 +171,18 @@ const NewsManagement: React.FC = () => {
                   onChange={(e) => setTitle(e.target.value)}
                   required
                 />
+              </div>
+              <div>
+                <Label htmlFor="slug">Slug (URL alias)</Label>
+                <Input
+                  id="slug"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="e.g., reader-launch"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional. Leave empty to use ID in URL. Use lowercase letters, numbers, and hyphens only.
+                </p>
               </div>
               <div>
                 <Label htmlFor="content">Content</Label>

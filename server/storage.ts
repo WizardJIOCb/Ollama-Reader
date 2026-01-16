@@ -2694,10 +2694,12 @@ export class DBStorage implements IStorage {
   async getNews(id: string): Promise<any | undefined> {
     try {
       // Get news with author information
+      // Support both ID and slug lookup
       const result = await db.select({
         id: news.id,
         title: news.title,
         content: news.content,
+        slug: news.slug,
         authorId: news.authorId,
         published: news.published,
         publishedAt: news.publishedAt,
@@ -2712,7 +2714,7 @@ export class DBStorage implements IStorage {
       })
       .from(news)
       .leftJoin(users, eq(news.authorId, users.id))
-      .where(eq(news.id, id));
+      .where(or(eq(news.id, id), eq(news.slug, id)));
       
       if (result.length === 0) {
         return undefined;
@@ -2723,6 +2725,7 @@ export class DBStorage implements IStorage {
         id: newsItem.id,
         title: newsItem.title,
         content: newsItem.content,
+        slug: newsItem.slug,
         authorId: newsItem.authorId,
         published: newsItem.published,
         publishedAt: newsItem.publishedAt?.toISOString() || null,
@@ -2958,6 +2961,7 @@ export class DBStorage implements IStorage {
         id: news.id,
         title: news.title,
         content: news.content,
+        slug: news.slug,
         authorId: news.authorId,
         published: news.published,
         publishedAt: news.publishedAt,
@@ -2980,6 +2984,7 @@ export class DBStorage implements IStorage {
         id: item.id,
         title: item.title,
         content: item.content,
+        slug: item.slug,
         authorId: item.authorId,
         published: item.published,
         publishedAt: item.publishedAt?.toISOString() || null,
@@ -3004,6 +3009,7 @@ export class DBStorage implements IStorage {
         id: news.id,
         title: news.title,
         content: news.content,
+        slug: news.slug,
         authorId: news.authorId,
         published: news.published,
         publishedAt: news.publishedAt,
@@ -3025,6 +3031,7 @@ export class DBStorage implements IStorage {
         id: item.id,
         title: item.title,
         content: item.content,
+        slug: item.slug,
         authorId: item.authorId,
         published: item.published,
         publishedAt: item.publishedAt?.toISOString() || null,

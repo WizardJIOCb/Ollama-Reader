@@ -13,6 +13,7 @@ interface NewsItem {
   id: string;
   title: string;
   content: string;
+  slug?: string;
   author: string;
   authorId: string;
   avatarUrl?: string | null;
@@ -111,7 +112,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                 <CardHeader>
                   <CardTitle>
                     <a 
-                      href={`/news/${newsItem.id}`}
+                      href={`/news/${newsItem.slug || newsItem.id}`}
                       className="text-primary hover:underline"
                     >
                       {newsItem.title}

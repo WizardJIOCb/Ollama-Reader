@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Book } from '@/lib/mockData';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,8 @@ import {
   Star, 
   User,
   Bookmark,
-  Activity
+  Activity,
+  BookOpenCheck
 } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,7 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useBookSplash } from '@/lib/bookSplashContext';
+import { readerApi } from '@/lib/api';
 
 interface BookCardProps {
   book: Book;
@@ -45,6 +47,12 @@ export const BookCard: React.FC<BookCardProps> = ({
   const [, setLocation] = useLocation();
   const { showSplash } = useBookSplash();
   const [localReactions, setLocalReactions] = useState(book.reactions || []);
+  const [progress, setProgress] = useState<{
+    currentPage: number;
+    totalPages: number;
+    percentage: number;
+    lastReadAt?: string;
+  } | null>(null);
   // Format dates for display in DD.MM.YYYY format
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '';
@@ -63,6 +71,34 @@ export const BookCard: React.FC<BookCardProps> = ({
   React.useEffect(() => {
     setLocalReactions(book.reactions || []);
   }, [book]);
+
+  // Fetch reading progress when user is authenticated
+  useEffect(() => {
+    const fetchProgress = async () => {
+      if (!user || !book.id) {
+        setProgress(null);
+        return;
+      }
+
+      try {
+        const response = await readerApi.getProgress(book.id.toString());
+        if (response.ok) {
+          const data = await response.json();
+          // Only set progress if there's actual reading progress (percentage > 0)
+          if (data && data.percentage > 0) {
+            setProgress(data);
+          } else {
+            setProgress(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching reading progress:', error);
+        setProgress(null);
+      }
+    };
+
+    fetchProgress();
+  }, [user, book.id]);
 
   // Handle book reaction
   const handleBookReact = async (emoji: string) => {
@@ -240,7 +276,10 @@ export const BookCard: React.FC<BookCardProps> = ({
             {variant === 'detailed' && (
               <div className="mb-3">
                 <ReactionBar 
-                  reactions={localReactions} 
+                  reactions={
+                    // Sort by count descending to show most popular first
+                    localReactions.sort((a, b) => b.count - a.count)
+                  } 
                   onReact={handleBookReact}
                   bookId={book.id.toString()}
                 />
@@ -314,7 +353,32 @@ export const BookCard: React.FC<BookCardProps> = ({
               <span>{t('books:lastActivity')}: {formatDate(book.lastActivityDate)}</span>
             </div>
           )}
+          
+          {/* Last read date - when user last opened this book in reader */}
+          {progress && progress.lastReadAt && (
+            <div className="flex items-center text-xs text-muted-foreground whitespace-nowrap">
+              <BookOpenCheck className="w-3 h-3 mr-1" />
+              <span>{t('books:lastOpenedInReader')}: {new Date(progress.lastReadAt).toLocaleString()}</span>
+            </div>
+          )}
         </div>
+        
+        {/* Reading Progress Display */}
+        {progress && progress.percentage > 0 && (
+          <div className="mt-3 mb-2">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>{t('books:progress')}</span>
+              <span>{Math.round(progress.percentage)}%</span>
+            </div>
+            <Progress value={progress.percentage} className="h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>{progress.currentPage} {t('books:of')} {progress.totalPages} {t('books:pages')}</span>
+              {progress.lastReadAt && (
+                <span>{t('books:lastRead')}: {new Date(progress.lastReadAt).toLocaleDateString()}</span>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* TODO: Restore when reader module is fully implemented
         {readingProgress && (

@@ -15,6 +15,8 @@ import enAbout from './locales/en/about.json';
 import enLanding from './locales/en/landing.json';
 import enBooks from './locales/en/books.json';
 import enStream from './locales/en/stream.json';
+import enAuth from './locales/en/auth.json';
+import enOAuth from './locales/en/oauth.json';
 
 
 import ruCommon from './locales/ru/common.json';
@@ -29,6 +31,8 @@ import ruAbout from './locales/ru/about.json';
 import ruLanding from './locales/ru/landing.json';
 import ruBooks from './locales/ru/books.json';
 import ruStream from './locales/ru/stream.json';
+import ruAuth from './locales/ru/auth.json';
+import ruOAuth from './locales/ru/oauth.json';
 
 
 // Define resources
@@ -46,6 +50,8 @@ const resources = {
     landing: enLanding,
     books: enBooks,
     stream: enStream,
+    auth: enAuth,
+    oauth: enOAuth,
   },
   ru: {
     common: ruCommon,
@@ -60,6 +66,8 @@ const resources = {
     landing: ruLanding,
     books: ruBooks,
     stream: ruStream,
+    auth: ruAuth,
+    oauth: ruOAuth,
   },
 };
 
@@ -70,7 +78,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream'],
+    ns: ['common', 'navigation', 'profile', 'notifications', 'shelves', 'search', 'messages', 'home', 'about', 'landing', 'books', 'stream', 'auth', 'oauth'],
     
     interpolation: {
       escapeValue: false, // React already escapes values

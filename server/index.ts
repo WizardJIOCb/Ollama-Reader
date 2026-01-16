@@ -3,10 +3,29 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { createServer as createHttpsServer } from "https";
+import fs from "fs";
 import path from "path";
 
 const app = express();
-const httpServer = createServer(app);
+
+// Check if HTTPS is enabled and certificates exist
+const useHttps = process.env.USE_HTTPS === 'true';
+const certsPath = path.resolve(process.cwd(), 'certs');
+const keyPath = path.join(certsPath, 'localhost.key');
+const certPath = path.join(certsPath, 'localhost.crt');
+
+let httpServer;
+if (useHttps && fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  const httpsOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+  };
+  httpServer = createHttpsServer(httpsOptions, app);
+  console.log('HTTPS mode enabled');
+} else {
+  httpServer = createServer(app);
+}
 
 // Add CORS middleware
 app.use((req, res, next) => {

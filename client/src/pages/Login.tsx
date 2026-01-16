@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
+import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -12,6 +14,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const [, navigate] = useLocation();
+  const { t } = useTranslation(['auth']);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +24,7 @@ export default function Login() {
     if (result.success) {
       navigate('/home');
     } else {
-      setError(result.message || 'Invalid username or password');
+      setError(result.message || t('auth:invalidCredentials'));
     }
   };
 
@@ -38,8 +41,8 @@ export default function Login() {
           </div>
           
           <CardHeader className="text-center p-0 mb-6">
-            <CardTitle className="text-2xl font-bold font-serif">Sign In to Account</CardTitle>
-            <CardDescription className="text-muted-foreground mt-2">Welcome back to Reader.Market</CardDescription>
+            <CardTitle className="text-2xl font-bold font-serif">{t('auth:signIn')}</CardTitle>
+            <CardDescription className="text-muted-foreground mt-2">{t('auth:welcomeBack')}</CardDescription>
           </CardHeader>
           
           <CardContent className="w-full p-0">
@@ -59,7 +62,7 @@ export default function Login() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Username"
+                  placeholder={t('auth:username')}
                 />
               </div>
               
@@ -72,7 +75,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder={t('auth:password')}
                 />
               </div>
               
@@ -80,14 +83,16 @@ export default function Login() {
                 type="submit" 
                 className="w-full mt-4"
               >
-                Sign in
+                {t('auth:signInButton')}
               </Button>
             </form>
             
+            <SocialLoginButtons />
+            
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
+              {t('auth:noAccount')}{' '}
               <Link href="/register" className="font-medium text-primary hover:underline">
-                Register here
+                {t('auth:registerHere')}
               </Link>
             </div>
           </CardContent>

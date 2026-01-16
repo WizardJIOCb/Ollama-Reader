@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import { createCommentActivity, createReviewActivity, createBookActivity, createNewsActivity } from "./streamHelpers";
 import { logUserAction, logGroupMessageAction } from "./actionLoggingMiddleware";
+import oauthRoutes from "./oauth/routes";
 
 // Import db from storage module
 import { db } from './storage';
@@ -234,6 +235,9 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   console.log("Registering API routes...");
+  
+  // Register OAuth routes WITHOUT /api prefix (they handle their own /auth prefix)
+  app.use(oauthRoutes);
   
   // Initialize Socket.io server
   const io = new SocketIOServer(httpServer, {

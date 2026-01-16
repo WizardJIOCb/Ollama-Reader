@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull } from "drizzle-orm";
 
 // Database connection
@@ -5422,6 +5422,99 @@ export class DBStorage implements IStorage {
       console.error("Error deleting book chat message:", error);
       return false;
     }
+  }
+
+  // OAuth Account Management
+  async createOAuthAccount(data: {
+    userId: number;
+    provider: string;
+    providerUserId: string;
+    email?: string;
+    encryptedAccessToken?: string;
+    encryptedRefreshToken?: string;
+    tokenExpiresAt?: Date;
+  }) {
+    const [account] = await db.insert(oauthAccounts).values(data).returning();
+    return account;
+  }
+
+  async getOAuthAccount(provider: string, providerUserId: string) {
+    const [account] = await db
+      .select()
+      .from(oauthAccounts)
+      .where(
+        and(
+          eq(oauthAccounts.provider, provider),
+          eq(oauthAccounts.providerUserId, providerUserId)
+        )
+      )
+      .limit(1);
+    return account;
+  }
+
+  async getOAuthAccountsByUserId(userId: number) {
+    return await db
+      .select()
+      .from(oauthAccounts)
+      .where(eq(oauthAccounts.userId, userId));
+  }
+
+  async getUserByOAuthEmail(email: string) {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    return user;
+  }
+
+  async updateOAuthTokens(
+    id: number,
+    encryptedAccessToken: string,
+    encryptedRefreshToken?: string,
+    tokenExpiresAt?: Date
+  ) {
+    const [account] = await db
+      .update(oauthAccounts)
+      .set({
+        encryptedAccessToken,
+        encryptedRefreshToken: encryptedRefreshToken || undefined,
+        tokenExpiresAt: tokenExpiresAt || undefined,
+        updatedAt: new Date(),
+      })
+      .where(eq(oauthAccounts.id, id))
+      .returning();
+    return account;
+  }
+
+  async unlinkOAuthAccount(userId: number, provider: string): Promise<boolean> {
+    const result = await db
+      .delete(oauthAccounts)
+      .where(
+        and(
+          eq(oauthAccounts.userId, userId),
+          eq(oauthAccounts.provider, provider)
+        )
+      );
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async countUserAuthMethods(userId: string): Promise<number> {
+    const oauthCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(oauthAccounts)
+      .where(eq(oauthAccounts.userId, userId));
+    
+    const [user] = await db
+      .select({ password: users.password })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    const hasPassword = user?.password ? 1 : 0;
+    const oauthTotal = Number(oauthCount[0]?.count || 0);
+    
+    return hasPassword + oauthTotal;
   }
 }
 export const storage = new DBStorage();

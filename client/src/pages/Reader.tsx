@@ -643,6 +643,9 @@ export default function Reader() {
     // Update page numbers from reader ref
     let currPage = 0;
     let totPages = 1;
+    let currPageOverall = 1;
+    let totPagesOverall = 1;
+    
     if (readerRef.current) {
       currPage = readerRef.current.getCurrentPage();
       totPages = readerRef.current.getTotalPages();
@@ -650,14 +653,17 @@ export default function Reader() {
       setTotalPages(totPages);
       
       // Update overall page numbers (across all chapters)
-      setCurrentPageOverall(readerRef.current.getEstimatedCurrentPageOverall());
-      setTotalPagesOverall(readerRef.current.getEstimatedTotalPages());
+      currPageOverall = readerRef.current.getEstimatedCurrentPageOverall();
+      totPagesOverall = readerRef.current.getEstimatedTotalPages();
+      setCurrentPageOverall(currPageOverall);
+      setTotalPagesOverall(totPagesOverall);
     }
     
     // Save progress to localStorage immediately
+    // Store OVERALL pages, not chapter pages
     const progressData = {
-      currentPage: currPage,
-      totalPages: totPages,
+      currentPage: currPageOverall,
+      totalPages: totPagesOverall,
       percentage: position.percentage,
       chapterIndex: position.chapterIndex,
     };

@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
+import { useTranslation } from 'react-i18next';
+import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -15,13 +17,14 @@ export default function Register() {
   const [error, setError] = useState('');
   const { register } = useAuth();
   const [, navigate] = useLocation();
+  const { t } = useTranslation(['auth']);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth:passwordsDoNotMatch'));
       return;
     }
 
@@ -29,7 +32,7 @@ export default function Register() {
     if (result.success) {
       navigate('/home');
     } else {
-      setError(result.message || 'Registration failed. Please try again.');
+      setError(result.message || t('auth:registrationFailed'));
     }
   };
 
@@ -47,8 +50,8 @@ export default function Register() {
           </div>
           
           <CardHeader className="text-center p-0 mb-6">
-            <CardTitle className="text-2xl font-bold font-serif">Create New Account</CardTitle>
-            <CardDescription className="text-muted-foreground mt-2">Join Reader.Market to enhance your reading experience</CardDescription>
+            <CardTitle className="text-2xl font-bold font-serif">{t('auth:createAccount')}</CardTitle>
+            <CardDescription className="text-muted-foreground mt-2">{t('auth:joinMessage')}</CardDescription>
           </CardHeader>
           
           <CardContent className="w-full p-0">
@@ -68,7 +71,7 @@ export default function Register() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Username"
+                  placeholder={t('auth:username')}
                 />
               </div>
               
@@ -80,7 +83,7 @@ export default function Register() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address (optional)"
+                  placeholder={t('auth:email')}
                 />
               </div>
               
@@ -91,7 +94,7 @@ export default function Register() {
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Full name (optional)"
+                  placeholder={t('auth:fullName')}
                 />
               </div>
               
@@ -104,7 +107,7 @@ export default function Register() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder={t('auth:password')}
                 />
               </div>
               
@@ -117,7 +120,7 @@ export default function Register() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm Password"
+                  placeholder={t('auth:confirmPassword')}
                 />
               </div>
               
@@ -126,14 +129,16 @@ export default function Register() {
                 className="w-full mt-4" 
                 disabled={password !== confirmPassword}
               >
-                Register
+                {t('auth:registerButton')}
               </Button>
             </form>
             
+            <SocialLoginButtons />
+            
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
+              {t('auth:alreadyHaveAccount')}{' '}
               <Link href="/login" className="font-medium text-primary hover:underline">
-                Sign in
+                {t('auth:signInLink')}
               </Link>
             </div>
           </CardContent>

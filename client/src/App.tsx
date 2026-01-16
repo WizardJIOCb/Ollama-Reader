@@ -15,6 +15,7 @@ import Profile from "@/pages/Profile";
 import SearchPage from "@/pages/Search";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import AuthCallback from "@/pages/AuthCallback";
 import BookDetail from "@/pages/BookDetail";
 import AddBook from "@/pages/AddBook";
 import AdminDashboard from "@/components/AdminDashboard";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/home" component={Library} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/shelves" component={Shelves} />
       <Route path="/add-book" component={AddBook} />
       <Route path="/search" component={SearchPage} />

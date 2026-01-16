@@ -343,5 +343,29 @@ export const bookChatMessages = pgTable("book_chat_messages", {
   deletedAt: timestamp("deleted_at"),
 });
 
+// OAuth Accounts Table
+export const oauthAccounts = pgTable("oauth_accounts", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  providerUserId: varchar("provider_user_id", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  encryptedAccessToken: text("encrypted_access_token"),
+  encryptedRefreshToken: text("encrypted_refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// OAuth State Management Table
+export const oauthStates = pgTable("oauth_states", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  stateToken: varchar("state_token", { length: 255 }).notNull().unique(),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  codeVerifier: varchar("code_verifier", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
 // Create unique constraint for conversations to prevent duplicate user pairs
 // Note: We'll handle this in the migration file

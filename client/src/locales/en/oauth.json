@@ -1,0 +1,13 @@
+{
+  "orContinueWith": "Or continue with",
+  "telegramInstructions": "Please use the Telegram Login Widget on the page",
+  "oauthFailed": "Authentication failed. Please try again.",
+  "invalidState": "Invalid authentication state. Please try again.",
+  "accountLinked": "Account successfully linked",
+  "accountUnlinked": "Account successfully unlinked",
+  "cannotUnlinkLast": "Cannot unlink last authentication method",
+  "linkedAccounts": "Linked Accounts",
+  "noLinkedAccounts": "No linked accounts",
+  "unlinkAccount": "Unlink",
+  "linkAccount": "Link Account"
+}

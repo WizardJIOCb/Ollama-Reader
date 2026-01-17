@@ -814,7 +814,7 @@ export default function Profile() {
                 <AvatarImage 
                   src={profile.avatar} 
                   alt={profile.name}
-                  className="w-full h-auto object-contain"
+                  className="w-full h-full object-cover"
                 />
                 <AvatarFallback className="bg-muted flex items-center justify-center">
                   <User className="w-24 h-24 text-muted-foreground" />

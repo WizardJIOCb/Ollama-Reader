@@ -21,6 +21,7 @@ import AddBook from "@/pages/AddBook";
 import AdminDashboard from "@/components/AdminDashboard";
 import UserManagement from "@/pages/UserManagement";
 import RatingSystemSettings from "@/pages/RatingSystemSettings";
+import UserRatingSystemSettings from "@/pages/UserRatingSystemSettings";
 import Messages from "@/pages/Messages";
 import NewsDetailPage from "@/pages/NewsDetailPage";
 import NewsListPage from "@/pages/NewsListPage";
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/users" component={UserManagement} />
       <Route path="/admin/rating-system" component={RatingSystemSettings} />
+      <Route path="/admin/user-rating-system" component={UserRatingSystemSettings} />
       <Route component={NotFound} />
     </Switch>
   );

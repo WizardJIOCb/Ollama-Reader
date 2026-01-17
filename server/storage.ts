@@ -1,8 +1,17 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig } from "@shared/schema";
+import { type User, type InsertUser, users, books, shelves, shelfBooks, readingProgress, bookmarks, readingStatistics, userStatistics, comments, reviews, reactions, messages, conversations, bookViewStatistics, news, groups, groupMembers, groupBooks, channels, messageReactions, notifications, fileUploads, userActions, userChannelReadPositions, bookChatMessages, oauthAccounts, profileRatings, profileComments, ratingSystemConfig, userRatingConfig, userRatingAgg } from "@shared/schema";
 import { eq, and, inArray, desc, asc, sql, or, ilike, isNull, ne } from "drizzle-orm";
 import { calculateRating, type RatingAlgorithmConfig, type Review } from "./rating-algorithms";
+import { 
+  calculateUserRatingWeight, 
+  calculateUserRatingOverall, 
+  detectSpamInComment,
+  type UserRatingAlgorithmConfig,
+  type UserRatingParams,
+  type RaterUserData,
+  DEFAULT_USER_RATING_CONFIG
+} from "./user-rating-algorithms";
 
 // Database connection
 console.log("Connecting to database with URL:", process.env.DATABASE_URL);
@@ -5826,23 +5835,204 @@ export class DBStorage implements IStorage {
 
   async updateProfileAverageRating(profileId: string): Promise<void> {
     try {
-      // Calculate average rating
-      const result = await db.select({
-        avgRating: sql<number>`AVG(${profileRatings.rating})`,
-        count: sql<number>`COUNT(*)`
+      console.log(`Updating average rating for profile ${profileId}`);
+      
+      // Get user rating configuration
+      const configResult = await db.select().from(userRatingConfig).limit(1);
+      const dbConfig = configResult[0];
+      
+      if (!dbConfig) {
+        console.error("No user rating configuration found, using defaults");
+      }
+      
+      // Build config object
+      const config: UserRatingAlgorithmConfig = dbConfig ? {
+        priorMean: Number(dbConfig.priorMean),
+        priorStrength: dbConfig.priorStrength,
+        confidenceThreshold: dbConfig.confidenceThreshold,
+        raterAgeThresholds: {
+          youngDays: dbConfig.raterYoungDays,
+          youngMult: Number(dbConfig.raterYoungMult),
+          mediumDays: dbConfig.raterMediumDays,
+          mediumMult: Number(dbConfig.raterMediumMult),
+          matureMult: Number(dbConfig.raterMatureMult),
+        },
+        raterVerifiedMult: Number(dbConfig.raterVerifiedMult),
+        raterActivityMult: Number(dbConfig.raterActivityMult),
+        raterActivityRules: {
+          minReadingMinutes30d: dbConfig.raterMinReadingMinutes30d,
+          minBooksAdded30d: dbConfig.raterMinBooksAdded30d,
+        },
+        raterWeightCap: Number(dbConfig.raterWeightCap),
+        raterWeightFloor: Number(dbConfig.raterWeightFloor),
+        textEmptyMult: Number(dbConfig.textEmptyMult),
+        textLengthRules: {
+          shortLength: dbConfig.textShortLength,
+          shortMult: Number(dbConfig.textShortMult),
+          normalMaxLength: dbConfig.textNormalMaxLength,
+          normalMult: Number(dbConfig.textNormalMult),
+          longMult: Number(dbConfig.textLongMult),
+        },
+        textSpamMult: Number(dbConfig.textSpamMult),
+        likesEnabled: dbConfig.likesEnabled,
+        likesAlpha: Number(dbConfig.likesAlpha),
+        likesCap: Number(dbConfig.likesCap),
+        timeDecayEnabled: dbConfig.timeDecayEnabled,
+        timeDecayHalfLifeDays: dbConfig.timeDecayHalfLifeDays,
+        timeDecayMinWeight: Number(dbConfig.timeDecayMinWeight),
+      } : DEFAULT_USER_RATING_CONFIG;
+      
+      // Get all ratings for this profile with comment data
+      const ratingsData = await db.select({
+        ratingId: profileRatings.id,
+        rating: profileRatings.rating,
+        userId: profileRatings.userId,
+        createdAt: profileRatings.createdAt,
+        raterCreatedAt: users.createdAt,
+        raterIsVerified: sql<boolean>`CASE WHEN ${users.email} IS NOT NULL THEN true ELSE false END`,
       })
       .from(profileRatings)
+      .leftJoin(users, eq(profileRatings.userId, users.id))
       .where(eq(profileRatings.profileId, profileId));
       
-      const avgRating = result[0].avgRating;
-      const count = Number(result[0].count);
+      console.log(`Found ${ratingsData.length} ratings for profile ${profileId}`);
+      
+      if (ratingsData.length === 0) {
+        // No ratings, set to null
+        await db.update(users)
+          .set({ profileRating: null })
+          .where(eq(users.id, profileId));
+        
+        // Update or create aggregate record
+        await db.insert(userRatingAgg)
+          .values({
+            userId: profileId,
+            sumW: '0',
+            sumWX: '0',
+            countActive: 0,
+            ratingOverall: null,
+            confidence: '0',
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: userRatingAgg.userId,
+            set: {
+              sumW: '0',
+              sumWX: '0',
+              countActive: 0,
+              ratingOverall: null,
+              confidence: '0',
+              updatedAt: new Date(),
+            }
+          });
+        
+        console.log(`Set profile ${profileId} rating to null (no ratings)`);
+        return;
+      }
+      
+      // Get profile comments linked to these ratings to get text content
+      const comments = await db.select({
+        linkedRatingId: profileComments.linkedRatingId,
+        content: profileComments.content,
+      })
+      .from(profileComments)
+      .where(
+        and(
+          eq(profileComments.profileId, profileId),
+          isNull(profileComments.linkedRatingId) === false
+        )
+      );
+      
+      const commentMap = new Map<string, string>();
+      for (const comment of comments) {
+        if (comment.linkedRatingId) {
+          commentMap.set(comment.linkedRatingId, comment.content);
+        }
+      }
+      
+      // Calculate weights and prepare data for rating calculation
+      const ratingsWithWeights: Array<{
+        rating: UserRatingParams;
+        rater: RaterUserData;
+        weight: number;
+      }> = [];
+      
+      for (const ratingData of ratingsData) {
+        const content = commentMap.get(ratingData.ratingId) || '';
+        const isSpam = detectSpamInComment(content);
+        
+        const ratingParams: UserRatingParams = {
+          id: ratingData.ratingId,
+          rating: ratingData.rating,
+          content: content,
+          createdAt: ratingData.createdAt,
+          likes: 0, // We'll add this later if needed
+          raterUserId: ratingData.userId,
+          status: 'active',
+        };
+        
+        const raterData: RaterUserData = {
+          id: ratingData.userId,
+          createdAt: ratingData.raterCreatedAt,
+          isVerified: ratingData.raterIsVerified,
+        };
+        
+        const weight = calculateUserRatingWeight(ratingParams, raterData, config, isSpam);
+        
+        ratingsWithWeights.push({
+          rating: ratingParams,
+          rater: raterData,
+          weight,
+        });
+      }
+      
+      // Calculate overall rating
+      const { rating: calculatedRating, confidence, effectiveN } = calculateUserRatingOverall(
+        ratingsWithWeights,
+        config
+      );
+      
+      console.log(`Calculated rating: ${calculatedRating} (confidence: ${confidence}, effectiveN: ${effectiveN}) for profile ${profileId}`);
       
       // Update user's profile rating
       await db.update(users)
         .set({
-          profileRating: count > 0 && avgRating ? Math.round(avgRating * 10) / 10 : null
+          profileRating: calculatedRating !== null ? sql`${calculatedRating}` : null
         })
         .where(eq(users.id, profileId));
+      
+      // Calculate aggregate sums for storage
+      let sumW = 0;
+      let sumWX = 0;
+      for (const { rating, weight } of ratingsWithWeights) {
+        sumW += weight;
+        sumWX += weight * rating.rating;
+      }
+      
+      // Update aggregate table
+      await db.insert(userRatingAgg)
+        .values({
+          userId: profileId,
+          sumW: sql`${sumW}`,
+          sumWX: sql`${sumWX}`,
+          countActive: ratingsData.length,
+          ratingOverall: calculatedRating !== null ? sql`${calculatedRating}` : null,
+          confidence: sql`${confidence}`,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: userRatingAgg.userId,
+          set: {
+            sumW: sql`${sumW}`,
+            sumWX: sql`${sumWX}`,
+            countActive: ratingsData.length,
+            ratingOverall: calculatedRating !== null ? sql`${calculatedRating}` : null,
+            confidence: sql`${confidence}`,
+            updatedAt: new Date(),
+          }
+        });
+      
+      console.log(`Updated profile ${profileId} rating to ${calculatedRating}`);
     } catch (error) {
       console.error("Error updating profile average rating:", error);
       throw error;
@@ -6129,6 +6319,90 @@ export class DBStorage implements IStorage {
       return { success: true, booksUpdated: updatedCount };
     } catch (error) {
       console.error("Error recalculating all book ratings:", error);
+      throw error;
+    }
+  }
+
+  // User rating system methods
+  async getUserRatingConfig(): Promise<any> {
+    try {
+      const result = await db.select().from(userRatingConfig).limit(1);
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error getting user rating config:", error);
+      return null;
+    }
+  }
+
+  async updateUserRatingConfig(configData: Partial<typeof userRatingConfig.$inferInsert>): Promise<any> {
+    try {
+      // Get existing config
+      const existing = await db.select().from(userRatingConfig).limit(1);
+      
+      if (existing.length === 0) {
+        // Create new config
+        const result = await db.insert(userRatingConfig)
+          .values({
+            ...configData,
+            updatedAt: new Date(),
+          })
+          .returning();
+        return result[0];
+      } else {
+        // Update existing config
+        const result = await db.update(userRatingConfig)
+          .set({
+            ...configData,
+            updatedAt: new Date(),
+          })
+          .where(eq(userRatingConfig.id, existing[0].id))
+          .returning();
+        return result[0];
+      }
+    } catch (error) {
+      console.error("Error updating user rating config:", error);
+      throw error;
+    }
+  }
+
+  async recalculateAllUserRatings(): Promise<{ success: boolean; usersUpdated: number }> {
+    try {
+      console.log("Starting recalculation of all user profile ratings...");
+      
+      // Get all users that have ratings
+      const usersWithRatings = await db.select({
+        profileId: profileRatings.profileId,
+      })
+      .from(profileRatings)
+      .groupBy(profileRatings.profileId);
+      
+      console.log(`Found ${usersWithRatings.length} users with ratings`);
+      
+      let updatedCount = 0;
+      
+      // Update rating for each user
+      for (const user of usersWithRatings) {
+        await this.updateProfileAverageRating(user.profileId);
+        updatedCount++;
+      }
+      
+      // Also reset rating to null for users without ratings
+      const allUsers = await db.select({ id: users.id }).from(users);
+      const userIdsWithRatings = new Set(usersWithRatings.map(u => u.profileId));
+      
+      for (const user of allUsers) {
+        if (!userIdsWithRatings.has(user.id)) {
+          await db.update(users)
+            .set({ profileRating: null })
+            .where(eq(users.id, user.id));
+        }
+      }
+      
+      console.log(`Recalculation complete. Updated ${updatedCount} user profiles.`);
+      
+      return { success: true, usersUpdated: updatedCount };
+    } catch (error) {
+      console.error("Error recalculating all user ratings:", error);
       throw error;
     }
   }

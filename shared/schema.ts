@@ -394,7 +394,7 @@ export const oauthStates = pgTable("oauth_states", {
   expiresAt: timestamp("expires_at").notNull(),
 });
 
-// Table for system-wide rating algorithm configuration
+// Table for system-wide rating algorithm configuration (for book ratings)
 export const ratingSystemConfig = pgTable("rating_system_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   algorithmType: varchar("algorithm_type", { length: 50 }).notNull().default('simple_average'), // 'simple_average', 'bayesian_average', 'weighted_bayesian', 'confidence_weighted'
@@ -406,6 +406,63 @@ export const ratingSystemConfig = pgTable("rating_system_config", {
   timeDecayEnabled: boolean("time_decay_enabled").default(false), // Enable time decay
   timeDecayHalfLife: integer("time_decay_half_life").default(180), // Half-life in days
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for user rating system configuration
+export const userRatingConfig = pgTable("user_rating_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  priorMean: numeric("prior_mean", { precision: 3, scale: 1 }).default('7.5'),
+  priorStrength: integer("prior_strength").default(20),
+  confidenceThreshold: integer("confidence_threshold").default(30),
+  
+  // Rater weight config
+  raterYoungDays: integer("rater_young_days").default(7),
+  raterYoungMult: numeric("rater_young_mult", { precision: 2, scale: 1 }).default('0.3'),
+  raterMediumDays: integer("rater_medium_days").default(30),
+  raterMediumMult: numeric("rater_medium_mult", { precision: 2, scale: 1 }).default('0.6'),
+  raterMatureMult: numeric("rater_mature_mult", { precision: 2, scale: 1 }).default('1.0'),
+  raterVerifiedMult: numeric("rater_verified_mult", { precision: 3, scale: 2 }).default('1.10'),
+  raterActivityMult: numeric("rater_activity_mult", { precision: 3, scale: 2 }).default('1.05'),
+  raterMinReadingMinutes30d: integer("rater_min_reading_minutes_30d").default(60),
+  raterMinBooksAdded30d: integer("rater_min_books_added_30d").default(3),
+  raterWeightCap: numeric("rater_weight_cap", { precision: 2, scale: 1 }).default('1.2'),
+  raterWeightFloor: numeric("rater_weight_floor", { precision: 2, scale: 1 }).default('0.2'),
+  
+  // Text quality weight config
+  textEmptyMult: numeric("text_empty_mult", { precision: 2, scale: 1 }).default('0.85'),
+  textShortLength: integer("text_short_length").default(20),
+  textShortMult: numeric("text_short_mult", { precision: 2, scale: 1 }).default('0.6'),
+  textNormalMaxLength: integer("text_normal_max_length").default(1200),
+  textNormalMult: numeric("text_normal_mult", { precision: 2, scale: 1 }).default('1.0'),
+  textLongMult: numeric("text_long_mult", { precision: 2, scale: 1 }).default('0.9'),
+  textSpamMult: numeric("text_spam_mult", { precision: 2, scale: 1 }).default('0.3'),
+  
+  // Likes weight config
+  likesEnabled: boolean("likes_enabled").default(true),
+  likesAlpha: numeric("likes_alpha", { precision: 2, scale: 1 }).default('0.3'),
+  likesCap: numeric("likes_cap", { precision: 2, scale: 1 }).default('2.0'),
+  
+  // Time decay config
+  timeDecayEnabled: boolean("time_decay_enabled").default(false),
+  timeDecayHalfLifeDays: integer("time_decay_half_life_days").default(180),
+  timeDecayMinWeight: numeric("time_decay_min_weight", { precision: 2, scale: 1 }).default('3.0'),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Table for user rating aggregates (for efficient incremental updates)
+export const userRatingAgg = pgTable("user_rating_agg", {
+  userId: varchar("user_id").primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  sumW: numeric("sum_w", { precision: 10, scale: 4 }).default('0'),
+  sumWX: numeric("sum_wx", { precision: 10, scale: 4 }).default('0'),
+  countActive: integer("count_active").default(0),
+  recentSumW: numeric("recent_sum_w", { precision: 10, scale: 4 }).default('0'),
+  recentSumWX: numeric("recent_sum_wx", { precision: 10, scale: 4 }).default('0'),
+  ratingOverall: numeric("rating_overall", { precision: 3, scale: 1 }),
+  ratingRecent: numeric("rating_recent", { precision: 3, scale: 1 }),
+  confidence: numeric("confidence", { precision: 3, scale: 2 }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

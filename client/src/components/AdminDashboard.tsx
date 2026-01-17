@@ -22,6 +22,8 @@ import CommentsModeration from '@/components/CommentsModeration';
 import ReviewsModeration from '@/components/ReviewsModeration';
 import UserManagement from '@/pages/UserManagement';
 import BooksManagement from '@/components/BooksManagement';
+import RatingSystemSettings from '@/pages/RatingSystemSettings';
+import UserRatingSystemSettings from '@/pages/UserRatingSystemSettings';
 import {
   LayoutDashboard, 
   Newspaper, 
@@ -33,7 +35,8 @@ import {
   User,
   Menu,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -413,6 +416,8 @@ const AdminDashboard: React.FC = () => {
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'books', label: 'Books', icon: BookOpen },
     ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),
+    ...(isAdmin ? [{ id: 'rating-system', label: 'Book Rating System', icon: Settings }] : []),
+    ...(isAdmin ? [{ id: 'user-rating-system', label: 'User Rating System', icon: Settings }] : []),
   ];
 
   return (
@@ -755,6 +760,14 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'users' && isAdmin && (
               <UserManagement />
+            )}
+
+            {activeTab === 'rating-system' && isAdmin && (
+              <RatingSystemSettings />
+            )}
+
+            {activeTab === 'user-rating-system' && isAdmin && (
+              <UserRatingSystemSettings />
             )}
           </div>
         </main>

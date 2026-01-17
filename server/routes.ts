@@ -4139,6 +4139,37 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to recalculate ratings" });
     }
   });
+
+  // User rating system configuration endpoints
+  app.get("/api/admin/user-rating-config", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    try {
+      const config = await storage.getUserRatingConfig();
+      res.json(config);
+    } catch (error) {
+      console.error("Error getting user rating config:", error);
+      res.status(500).json({ error: "Failed to get user rating configuration" });
+    }
+  });
+
+  app.put("/api/admin/user-rating-config", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    try {
+      const config = await storage.updateUserRatingConfig(req.body);
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating user rating config:", error);
+      res.status(500).json({ error: "Failed to update user rating configuration" });
+    }
+  });
+
+  app.post("/api/admin/recalculate-user-ratings", authenticateToken, requireAdminOrModerator, async (req, res) => {
+    try {
+      const result = await storage.recalculateAllUserRatings();
+      res.json(result);
+    } catch (error) {
+      console.error("Error recalculating user ratings:", error);
+      res.status(500).json({ error: "Failed to recalculate user ratings" });
+    }
+  });
   
   // ========================================
   // MESSAGING SYSTEM ROUTES

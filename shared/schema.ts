@@ -16,6 +16,7 @@ export const users = pgTable("users", {
   blockReason: text("block_reason"), // Reason for blocking (supports markdown/links)
   profileRating: numeric("profile_rating", { precision: 3, scale: 1 }), // Average profile rating from profile_ratings
   language: varchar("language", { length: 10 }).default('en'), // User's preferred language
+  lastLoginAt: timestamp("last_login_at"), // Last successful login timestamp
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -325,6 +325,15 @@ export class DBStorage implements IStorage {
     }
   }
 
+  async updateUserLastLogin(userId: string): Promise<void> {
+    try {
+      await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
+    } catch (error) {
+      console.error("Error updating user last login:", error);
+      throw error;
+    }
+  }
+
   async createBook(bookData: any): Promise<any> {
     try {
       const result = await db.insert(books).values(bookData).returning();
@@ -3299,7 +3308,7 @@ export class DBStorage implements IStorage {
         isBlocked: users.isBlocked,
         blockReason: users.blockReason,
         createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
+        lastLoginAt: users.lastLoginAt,
       })
       .from(users)
       .orderBy(desc(users.createdAt))
@@ -3308,22 +3317,6 @@ export class DBStorage implements IStorage {
       
       // For each user, get their statistics
       const usersWithStats = await Promise.all(usersResult.map(async (user) => {
-        // Get last login date from the most recent activity
-        const lastLoginResult = await db.execute(sql`
-          SELECT MAX(created_at) as last_login 
-          FROM (
-            SELECT created_at FROM comments WHERE user_id = ${user.id}
-            UNION ALL
-            SELECT created_at FROM reviews WHERE user_id = ${user.id}
-            UNION ALL
-            SELECT created_at FROM messages WHERE sender_id = ${user.id}
-            UNION ALL
-            SELECT created_at FROM news WHERE author_id = ${user.id}
-          ) AS activity
-        `);
-        
-        const lastLogin = lastLoginResult.rows[0].last_login ? new Date(lastLoginResult.rows[0].last_login as string) : null;
-        
         // Count shelves for the user
         const shelvesResult = await db.execute(sql`SELECT COUNT(*) as count FROM shelves WHERE user_id = ${user.id}`);
         const shelvesCount = parseInt(shelvesResult.rows[0].count as string);
@@ -3348,7 +3341,7 @@ export class DBStorage implements IStorage {
         
         return {
           ...user,
-          lastLogin: lastLogin ? lastLogin.toISOString() : null,
+          lastLogin: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
           shelvesCount,
           booksOnShelvesCount,
           commentsCount,

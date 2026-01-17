@@ -82,6 +82,9 @@ export class OAuthService {
         tokenExpiresAt
       );
 
+      // Update last login timestamp
+      await storage.updateUserLastLogin(existingOAuthAccount.userId);
+
       // Get user
       const user = await storage.getUser(existingOAuthAccount.userId);
       return { user, isNewUser: false };

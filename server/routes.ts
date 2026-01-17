@@ -749,6 +749,9 @@ export async function registerRoutes(
         });
       }
       
+      // Update last login timestamp
+      await storage.updateUserLastLogin(user.id);
+      
       // Generate token
       console.log("Generating token for user ID:", user.id);
       const token = generateToken(user.id);
@@ -3815,7 +3818,7 @@ export async function registerRoutes(
             COALESCE(u.is_blocked, false) as "isBlocked",
             u.block_reason as "blockReason",
             u.created_at as "createdAt",
-            u.updated_at as "lastLogin",
+            u.last_login_at as "lastLogin",
             COUNT(DISTINCT s.id)::text as "shelvesCount",
             COUNT(DISTINCT sb.book_id)::text as "booksOnShelvesCount",
             COUNT(DISTINCT c.id)::text as "commentsCount",

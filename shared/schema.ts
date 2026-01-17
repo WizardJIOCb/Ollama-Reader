@@ -363,6 +363,7 @@ export const oauthStates = pgTable("oauth_states", {
   stateToken: varchar("state_token", { length: 255 }).notNull().unique(),
   provider: varchar("provider", { length: 50 }).notNull(),
   codeVerifier: varchar("code_verifier", { length: 255 }),
+  language: varchar("language", { length: 10 }), // Store user's selected language
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
 });

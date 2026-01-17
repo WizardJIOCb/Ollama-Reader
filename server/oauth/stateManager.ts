@@ -32,9 +32,10 @@ export function generateCodeChallenge(codeVerifier: string): string {
  * Creates a new OAuth state token for CSRF protection
  * @param provider The OAuth provider name
  * @param codeVerifier Optional PKCE code verifier to store with state
+ * @param language Optional user's selected language to preserve through OAuth flow
  * @returns The generated state token
  */
-export async function createState(provider: OAuthProvider, codeVerifier?: string): Promise<string> {
+export async function createState(provider: OAuthProvider, codeVerifier?: string, language?: string): Promise<string> {
   const stateToken = generateStateToken();
   const expiresAt = new Date(Date.now() + STATE_TTL_MINUTES * 60 * 1000);
 
@@ -42,6 +43,7 @@ export async function createState(provider: OAuthProvider, codeVerifier?: string
     stateToken,
     provider,
     codeVerifier,
+    language,
     expiresAt,
   });
 
@@ -49,11 +51,12 @@ export async function createState(provider: OAuthProvider, codeVerifier?: string
 }
 
 /**
- * Result of state validation with optional PKCE data
+ * Result of state validation with optional PKCE data and language
  */
 export interface StateValidationResult {
   valid: boolean;
   codeVerifier?: string | null;
+  language?: string | null;
 }
 
 /**
@@ -93,7 +96,7 @@ export async function validateAndConsumeState(
     return { valid: false };
   }
 
-  return { valid: true, codeVerifier: state.codeVerifier };
+  return { valid: true, codeVerifier: state.codeVerifier, language: state.language };
 }
 
 /**

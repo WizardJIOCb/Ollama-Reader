@@ -79,7 +79,9 @@ export function createOAuthRoutes(app: Express) {
 
 // Google OAuth
 router.get('/auth/google', async (req: Request, res: Response) => {
-  const state = await createState('google');
+  // Get user's selected language from query parameter or cookie
+  const language = req.query.lang as string || req.cookies?.i18nextLng || 'en';
+  const state = await createState('google', undefined, language);
   passport.authenticate('google', { state, session: false })(req, res);
 });
 
@@ -105,6 +107,7 @@ router.get('/auth/callback/google', async (req: Request, res: Response) => {
         email,
         displayName: authData.profile.displayName,
         avatarUrl,
+        language: stateResult.language || 'en',
         accessToken: authData.accessToken,
         refreshToken: authData.refreshToken,
       });
@@ -216,8 +219,11 @@ router.get('/auth/vk', async (req: Request, res: Response) => {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
     
-    // Store code verifier with state for later use
-    const state = await createState('vk', codeVerifier);
+    // Get user's selected language from query parameter or cookie
+    const language = req.query.lang as string || req.cookies?.i18nextLng || 'en';
+    
+    // Store code verifier and language with state for later use
+    const state = await createState('vk', codeVerifier, language);
     const authUrl = await getVKAuthUrl(state, codeChallenge);
     res.redirect(authUrl);
   } catch (error) {
@@ -274,6 +280,7 @@ router.get('/auth/callback/vk', async (req: Request, res: Response) => {
       email: userData.email || tokenData.email,
       displayName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'VK User',
       avatarUrl: userData.avatar,
+      language: stateResult.language || 'en',
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       tokenExpiresAt,

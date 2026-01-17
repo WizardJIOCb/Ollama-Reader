@@ -16,6 +16,7 @@ export interface OAuthUserData {
   email?: string;
   displayName?: string;
   avatarUrl?: string;
+  language?: string;
   accessToken: string;
   refreshToken?: string;
   tokenExpiresAt?: Date;
@@ -67,7 +68,7 @@ export class OAuthService {
    * Handles OAuth callback and creates/links user account
    */
   async handleOAuthCallback(userData: OAuthUserData) {
-    const { provider, providerUserId, email, displayName, avatarUrl, accessToken, refreshToken, tokenExpiresAt } = userData;
+    const { provider, providerUserId, email, displayName, avatarUrl, language, accessToken, refreshToken, tokenExpiresAt } = userData;
 
     // Check if OAuth account already exists
     const existingOAuthAccount = await storage.getOAuthAccount(provider, providerUserId);
@@ -124,6 +125,7 @@ export class OAuthService {
         email: email || undefined,
         fullName: displayName || undefined,
         avatarUrl: savedAvatarUrl,
+        language: language || 'en', // Use language from OAuth state or default to 'en'
       });
       
       isNewUser = true;

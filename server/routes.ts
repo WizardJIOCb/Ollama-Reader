@@ -3725,11 +3725,65 @@ export async function registerRoutes(
       // Get reviews count from today
       const reviewsFromToday = await storage.getReviewsCountSince(startOfToday);
       
-      res.json({
+      // Get user registration statistics
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      
+      // Count total users
+      const totalUsersResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+      const totalUsers = parseInt(totalUsersResult.rows[0].count as string);
+      console.log('[DASHBOARD-STATS] Total users:', totalUsers);
+      
+      // Count users registered today
+      const todayUsersResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM users
+        WHERE created_at >= ${startOfToday}
+      `);
+      const todayUsers = parseInt(todayUsersResult.rows[0].count as string);
+      console.log('[DASHBOARD-STATS] Today users:', todayUsers, 'startOfToday:', startOfToday);
+      
+      // Count users registered this week
+      const weekUsersResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM users
+        WHERE created_at >= ${oneWeekAgo}
+      `);
+      const weekUsers = parseInt(weekUsersResult.rows[0].count as string);
+      console.log('[DASHBOARD-STATS] Week users:', weekUsers);
+      
+      // Count users registered this month
+      const monthUsersResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM users
+        WHERE created_at >= ${oneMonthAgo}
+      `);
+      const monthUsers = parseInt(monthUsersResult.rows[0].count as string);
+      console.log('[DASHBOARD-STATS] Month users:', monthUsers);
+      
+      // Count users registered this year
+      const yearUsersResult = await db.execute(sql`
+        SELECT COUNT(*) as count FROM users
+        WHERE created_at >= ${oneYearAgo}
+      `);
+      const yearUsers = parseInt(yearUsersResult.rows[0].count as string);
+      console.log('[DASHBOARD-STATS] Year users:', yearUsers);
+      
+      const result = {
         newsChange: newsFromLastMonth,
         commentsChange: commentsFromToday,
-        reviewsChange: reviewsFromToday
-      });
+        reviewsChange: reviewsFromToday,
+        userStats: {
+          total: totalUsers,
+          today: todayUsers,
+          week: weekUsers,
+          month: monthUsers,
+          year: yearUsers
+        }
+      };
+      
+      console.log('[DASHBOARD-STATS] Sending response:', JSON.stringify(result));
+      res.json(result);
     } catch (error) {
       console.error("Get dashboard stats error:", error);
       res.status(500).json({ error: "Failed to get dashboard statistics" });

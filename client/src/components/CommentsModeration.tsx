@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiCall, commentsApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ interface Comment {
 }
 
 const CommentsModeration: React.FC = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,16 +92,16 @@ const CommentsModeration: React.FC = () => {
             // Neither book nor news - shouldn't happen but handle gracefully
             return {
               ...comment,
-              bookTitle: 'Unknown Entity',
-              newsTitle: 'Unknown Entity'
+              bookTitle: t('admin:comments.unknownEntity'),
+              newsTitle: t('admin:comments.unknownEntity')
             };
           }
         } catch (err) {
           console.error(`Error fetching entity for comment ${comment.id}:`, err);
           return {
             ...comment,
-            bookTitle: comment.bookId ? 'Unknown Book' : undefined,
-            newsTitle: comment.newsId ? 'Unknown News' : undefined
+            bookTitle: comment.bookId ? t('admin:comments.unknownBook') : undefined,
+            newsTitle: comment.newsId ? t('admin:comments.unknownNews') : undefined
           };
         }
       }));
@@ -117,7 +119,7 @@ const CommentsModeration: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
+    if (!window.confirm(t('admin:comments.deleteConfirm'))) {
       return;
     }
     
@@ -158,7 +160,7 @@ const CommentsModeration: React.FC = () => {
       <div className="p-6">
         <Card>
           <CardContent className="p-8 text-center">
-            Loading pending comments...
+            {t('admin:common.loading')}
           </CardContent>
         </Card>
       </div>
@@ -180,10 +182,10 @@ const CommentsModeration: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Comments Moderation</h2>
+        <h2 className="text-2xl font-bold">{t('admin:comments.title')}</h2>
         <div className="flex items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            {totalComments} total comment{totalComments !== 1 ? 's' : ''}
+            {totalComments} {totalComments === 1 ? t('admin:comments.totalComments') : t('admin:comments.totalCommentsPlural')}
           </p>
           <Select value={itemsPerPage.toString()} onValueChange={(value) => {
             setItemsPerPage(parseInt(value));
@@ -193,11 +195,11 @@ const CommentsModeration: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="5">5 per page</SelectItem>
-              <SelectItem value="10">10 per page</SelectItem>
-              <SelectItem value="20">20 per page</SelectItem>
-              <SelectItem value="50">50 per page</SelectItem>
-              <SelectItem value="100">100 per page</SelectItem>
+              <SelectItem value="5">5 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="10">10 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="20">20 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="50">50 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="100">100 {t('admin:activity.perPage')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -205,7 +207,7 @@ const CommentsModeration: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Comments Awaiting Moderation</CardTitle>
+          <CardTitle>{t('admin:comments.awaitingModeration')}</CardTitle>
         </CardHeader>
         <CardContent>
           {comments.length > 0 ? (
@@ -232,10 +234,10 @@ const CommentsModeration: React.FC = () => {
                               rel="noopener noreferrer"
                               className="font-medium text-primary hover:underline"
                             >
-                              {comment.author || 'Anonymous'}
+                              {comment.author || t('admin:comments.anonymous')}
                             </a>
                           ) : (
-                            <span className="font-medium">{comment.author || 'Anonymous'}</span>
+                            <span className="font-medium">{comment.author || t('admin:comments.anonymous')}</span>
                           )}
                           <span className="mx-2 text-muted-foreground">•</span>
                           <span className="text-sm text-muted-foreground">
@@ -244,11 +246,11 @@ const CommentsModeration: React.FC = () => {
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
                           {comment.bookId ? (
-                            <span>Book: <span className="font-medium">{comment.bookTitle || 'Unknown Book'}</span></span>
+                            <span>{t('admin:comments.book')} <span className="font-medium">{comment.bookTitle || t('admin:comments.unknownBook')}</span></span>
                           ) : comment.newsId ? (
-                            <span>News: <span className="font-medium">{comment.newsTitle || 'Unknown News'}</span></span>
+                            <span>{t('admin:comments.news')} <span className="font-medium">{comment.newsTitle || t('admin:comments.unknownNews')}</span></span>
                           ) : (
-                            <span>Entity: <span className="font-medium">Unknown</span></span>
+                            <span>{t('admin:comments.entity')} <span className="font-medium">{t('admin:comments.unknown')}</span></span>
                           )}
                         </div>
                       {editingComment && editingComment.id === comment.id ? (
@@ -265,14 +267,14 @@ const CommentsModeration: React.FC = () => {
                               size="sm" 
                               onClick={() => handleSaveEdit(comment.id)}
                             >
-                              Save
+                              {t('admin:activity.save')}
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm" 
                               onClick={handleCancelEdit}
                             >
-                              Cancel
+                              {t('admin:activity.cancel')}
                             </Button>
                           </div>
                         </div>
@@ -285,14 +287,14 @@ const CommentsModeration: React.FC = () => {
                               size="sm" 
                               onClick={() => handleEdit(comment)}
                             >
-                              Edit
+                              {t('admin:activity.edit')}
                             </Button>
                             <Button 
                               variant="destructive" 
                               size="sm" 
                               onClick={() => handleDelete(comment.id)}
                             >
-                              Delete
+                              {t('admin:activity.delete')}
                             </Button>
                             <Button 
                               variant="secondary" 
@@ -305,7 +307,7 @@ const CommentsModeration: React.FC = () => {
                                 }
                               }}
                             >
-                              Show
+                              {t('admin:activity.show')}
                             </Button>
                           </div>
                         </div>
@@ -320,7 +322,7 @@ const CommentsModeration: React.FC = () => {
             {/* Pagination Controls */}
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalComments)} of {totalComments}
+                {t('admin:activity.showing')} {((currentPage - 1) * itemsPerPage) + 1} {t('admin:activity.to')} {Math.min(currentPage * itemsPerPage, totalComments)} {t('admin:activity.of')} {totalComments}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -330,10 +332,10 @@ const CommentsModeration: React.FC = () => {
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t('admin:activity.previous')}
                 </Button>
                 <div className="text-sm text-muted-foreground px-2">
-                  Page {currentPage} of {totalPages}
+                  {t('admin:activity.page')} {currentPage} {t('admin:activity.of')} {totalPages}
                 </div>
                 <Button
                   variant="outline"
@@ -341,7 +343,7 @@ const CommentsModeration: React.FC = () => {
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  Next
+                  {t('admin:activity.next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -349,7 +351,7 @@ const CommentsModeration: React.FC = () => {
           </>
           ) : (
             <p className="text-center text-muted-foreground py-4">
-              No pending comments to moderate.
+              {t('admin:comments.noPendingComments')}
             </p>
           )}
         </CardContent>

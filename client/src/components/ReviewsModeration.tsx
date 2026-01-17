@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiCall, reviewsApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ interface Review {
 }
 
 const ReviewsModeration: React.FC = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ const ReviewsModeration: React.FC = () => {
           console.error(`Error fetching book ${review.bookId} for review ${review.id}:`, err);
           return {
             ...review,
-            bookTitle: 'Unknown Book'
+            bookTitle: t('admin:reviews.unknownBook')
           };
         }
       }));
@@ -97,7 +99,7 @@ const ReviewsModeration: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+    if (!window.confirm(t('admin:reviews.deleteConfirm'))) {
       return;
     }
     
@@ -138,7 +140,7 @@ const ReviewsModeration: React.FC = () => {
       <div className="p-6">
         <Card>
           <CardContent className="p-8 text-center">
-            Loading pending reviews...
+            {t('admin:common.loading')}
           </CardContent>
         </Card>
       </div>
@@ -160,10 +162,10 @@ const ReviewsModeration: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Reviews Moderation</h2>
+        <h2 className="text-2xl font-bold">{t('admin:reviews.title')}</h2>
         <div className="flex items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            {totalReviews} total review{totalReviews !== 1 ? 's' : ''}
+            {totalReviews} {totalReviews === 1 ? t('admin:reviews.totalReviews') : t('admin:reviews.totalReviewsPlural')}
           </p>
           <Select value={itemsPerPage.toString()} onValueChange={(value) => {
             setItemsPerPage(parseInt(value));
@@ -173,11 +175,11 @@ const ReviewsModeration: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="5">5 per page</SelectItem>
-              <SelectItem value="10">10 per page</SelectItem>
-              <SelectItem value="20">20 per page</SelectItem>
-              <SelectItem value="50">50 per page</SelectItem>
-              <SelectItem value="100">100 per page</SelectItem>
+              <SelectItem value="5">5 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="10">10 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="20">20 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="50">50 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="100">100 {t('admin:activity.perPage')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -185,7 +187,7 @@ const ReviewsModeration: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Reviews Awaiting Moderation</CardTitle>
+          <CardTitle>{t('admin:reviews.awaitingModeration')}</CardTitle>
         </CardHeader>
         <CardContent>
           {reviews.length > 0 ? (
@@ -212,10 +214,10 @@ const ReviewsModeration: React.FC = () => {
                               rel="noopener noreferrer"
                               className="font-medium text-primary hover:underline"
                             >
-                              {review.author || 'Anonymous'}
+                              {review.author || t('admin:reviews.anonymous')}
                             </a>
                           ) : (
-                            <span className="font-medium">{review.author || 'Anonymous'}</span>
+                            <span className="font-medium">{review.author || t('admin:reviews.anonymous')}</span>
                           )}
                           <span className="mx-2 text-muted-foreground">•</span>
                           <span className="text-sm text-muted-foreground">
@@ -223,16 +225,16 @@ const ReviewsModeration: React.FC = () => {
                           </span>
                           <span className="mx-2 text-muted-foreground">•</span>
                           <span className="text-sm font-medium text-yellow-600">
-                            Rating: {review.rating}/10
+                            {t('admin:reviews.rating')} {review.rating}/10
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          Book: <span className="font-medium">{review.bookTitle || 'Unknown Book'}</span>
+                          {t('admin:reviews.book')} <span className="font-medium">{review.bookTitle || t('admin:reviews.unknownBook')}</span>
                         </div>
                       {editingReview && editingReview.id === review.id ? (
                         <div className="mt-2">
                           <div className="mb-2">
-                            <label className="block text-sm font-medium mb-1">Rating (1-10):</label>
+                            <label className="block text-sm font-medium mb-1">{t('admin:reviews.ratingLabel')}</label>
                             <input
                               type="number"
                               min="1"
@@ -254,14 +256,14 @@ const ReviewsModeration: React.FC = () => {
                               size="sm" 
                               onClick={() => handleSaveEdit(review.id)}
                             >
-                              Save
+                              {t('admin:activity.save')}
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm" 
                               onClick={handleCancelEdit}
                             >
-                              Cancel
+                              {t('admin:activity.cancel')}
                             </Button>
                           </div>
                         </div>
@@ -274,21 +276,21 @@ const ReviewsModeration: React.FC = () => {
                               size="sm" 
                               onClick={() => handleEdit(review)}
                             >
-                              Edit
+                              {t('admin:activity.edit')}
                             </Button>
                             <Button 
                               variant="destructive" 
                               size="sm" 
                               onClick={() => handleDelete(review.id)}
                             >
-                              Delete
+                              {t('admin:activity.delete')}
                             </Button>
                             <Button 
                               variant="secondary" 
                               size="sm" 
                               onClick={() => window.open(`/book/${review.bookId}`, '_blank', 'noopener,noreferrer')}
                             >
-                              Show
+                              {t('admin:activity.show')}
                             </Button>
                           </div>
                         </div>
@@ -303,7 +305,7 @@ const ReviewsModeration: React.FC = () => {
             {/* Pagination Controls */}
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalReviews)} of {totalReviews}
+                {t('admin:activity.showing')} {((currentPage - 1) * itemsPerPage) + 1} {t('admin:activity.to')} {Math.min(currentPage * itemsPerPage, totalReviews)} {t('admin:activity.of')} {totalReviews}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -313,10 +315,10 @@ const ReviewsModeration: React.FC = () => {
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t('admin:activity.previous')}
                 </Button>
                 <div className="text-sm text-muted-foreground px-2">
-                  Page {currentPage} of {totalPages}
+                  {t('admin:activity.page')} {currentPage} {t('admin:activity.of')} {totalPages}
                 </div>
                 <Button
                   variant="outline"
@@ -324,7 +326,7 @@ const ReviewsModeration: React.FC = () => {
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  Next
+                  {t('admin:activity.next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -332,7 +334,7 @@ const ReviewsModeration: React.FC = () => {
           </>
           ) : (
             <p className="text-center text-muted-foreground py-4">
-              No pending reviews to moderate.
+              {t('admin:reviews.noPendingReviews')}
             </p>
           )}
         </CardContent>

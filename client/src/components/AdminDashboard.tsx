@@ -48,7 +48,7 @@ const AdminDashboard: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const isMobile = useIsMobile();
   const { i18n } = useTranslation();
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'admin']);
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -59,6 +59,13 @@ const AdminDashboard: React.FC = () => {
     newsChange: 0,
     commentsChange: 0,
     reviewsChange: 0,
+    userStats: {
+      total: 0,
+      today: 0,
+      week: 0,
+      month: 0,
+      year: 0
+    }
   });
   const [accessChecked, setAccessChecked] = useState(false);
   interface ActivityItem {
@@ -313,6 +320,13 @@ const AdminDashboard: React.FC = () => {
             newsChange: statsData.newsChange || 0,
             commentsChange: statsData.commentsChange || 0,
             reviewsChange: statsData.reviewsChange || 0,
+            userStats: statsData.userStats || {
+              total: 0,
+              today: 0,
+              week: 0,
+              month: 0,
+              year: 0
+            }
           });
           
           // Fetch recent activity (comments and reviews)
@@ -384,8 +398,8 @@ const AdminDashboard: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Checking access...</h2>
-          <p className="text-muted-foreground">Verifying your admin privileges</p>
+          <h2 className="text-2xl font-bold mb-4">{t('admin:dashboard.checkingAccess')}</h2>
+          <p className="text-muted-foreground">{t('admin:dashboard.verifyingPrivileges')}</p>
         </div>
       </div>
     );
@@ -396,12 +410,12 @@ const AdminDashboard: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+            <h2 className="text-2xl font-bold mb-4">{t('admin:dashboard.accessDenied')}</h2>
             <p className="text-muted-foreground mb-6">
-              You don't have permission to access the admin panel.
+              {t('admin:dashboard.noPermission')}
             </p>
             <Link href="/">
-              <Button>Go to Home</Button>
+              <Button>{t('admin:dashboard.goHome')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -410,14 +424,14 @@ const AdminDashboard: React.FC = () => {
   }
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'news', label: 'News Management', icon: Newspaper },
-    { id: 'comments', label: 'Comments', icon: MessageSquare },
-    { id: 'reviews', label: 'Reviews', icon: Star },
-    { id: 'books', label: 'Books', icon: BookOpen },
-    ...(isAdmin ? [{ id: 'users', label: 'User Management', icon: Users }] : []),
-    ...(isAdmin ? [{ id: 'rating-system', label: 'Book Rating System', icon: Settings }] : []),
-    ...(isAdmin ? [{ id: 'user-rating-system', label: 'User Rating System', icon: Settings }] : []),
+    { id: 'dashboard', label: t('admin:navigation.dashboard'), icon: LayoutDashboard },
+    { id: 'news', label: t('admin:navigation.newsManagement'), icon: Newspaper },
+    { id: 'comments', label: t('admin:navigation.comments'), icon: MessageSquare },
+    { id: 'reviews', label: t('admin:navigation.reviews'), icon: Star },
+    { id: 'books', label: t('admin:navigation.books'), icon: BookOpen },
+    ...(isAdmin ? [{ id: 'users', label: t('admin:navigation.userManagement'), icon: Users }] : []),
+    ...(isAdmin ? [{ id: 'rating-system', label: t('admin:navigation.bookRatingSystem'), icon: Settings }] : []),
+    ...(isAdmin ? [{ id: 'user-rating-system', label: t('admin:navigation.userRatingSystem'), icon: Settings }] : []),
   ];
 
   return (
@@ -436,7 +450,7 @@ const AdminDashboard: React.FC = () => {
                   </SheetTrigger>
                   <SheetContent side="left" className="w-64">
                     <SheetHeader>
-                      <SheetTitle>Admin Navigation</SheetTitle>
+                      <SheetTitle>{t('admin:navigation.title')}</SheetTitle>
                     </SheetHeader>
                     <nav className="mt-6">
                       <ul className="space-y-1">
@@ -460,15 +474,15 @@ const AdminDashboard: React.FC = () => {
                   </SheetContent>
                 </Sheet>
               )}
-              <h1 className="text-xl font-bold">Admin Dashboard</h1>
+              <h1 className="text-xl font-bold">{t('admin:dashboard.title')}</h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground hidden sm:block">
-                Welcome, {user?.fullName || user?.username}
+                {t('admin:dashboard.welcome')}, {user?.fullName || user?.username}
               </span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
-                Logout
+                {t('common:logout')}
               </Button>
             </div>
           </div>
@@ -480,7 +494,7 @@ const AdminDashboard: React.FC = () => {
         {!isMobile && (
           <aside className="w-64 border-r bg-card min-h-screen">
             <div className="p-4">
-              <h2 className="text-lg font-semibold mb-4">Navigation</h2>
+              <h2 className="text-lg font-semibold mb-4">{t('admin:navigation.title')}</h2>
               <nav>
                 <ul className="space-y-1">
                   {menuItems.map((item) => (
@@ -506,11 +520,11 @@ const AdminDashboard: React.FC = () => {
           <div className="max-w-6xl mx-auto">
             {activeTab === 'dashboard' && (
               <div>
-                <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+                <h1 className="text-3xl font-bold mb-6">{t('admin:dashboard.title')}</h1>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total News</CardTitle>
+                      <CardTitle className="text-sm font-medium">{t('admin:stats.totalNews')}</CardTitle>
                       <Newspaper className="w-5 h-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -519,12 +533,12 @@ const AdminDashboard: React.FC = () => {
                       ) : (
                         <div className="text-2xl font-bold">{dashboardStats.totalNews}</div>
                       )}
-                      <p className="text-xs text-muted-foreground">+{dashboardStats.newsChange} from last month</p>
+                      <p className="text-xs text-muted-foreground">+{dashboardStats.newsChange} {t('admin:stats.fromLastMonth')}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Comments</CardTitle>
+                      <CardTitle className="text-sm font-medium">{t('admin:stats.comments')}</CardTitle>
                       <MessageSquare className="w-5 h-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -533,12 +547,12 @@ const AdminDashboard: React.FC = () => {
                       ) : (
                         <div className="text-2xl font-bold">{dashboardStats.totalComments}</div>
                       )}
-                      <p className="text-xs text-muted-foreground">+{dashboardStats.commentsChange} new today</p>
+                      <p className="text-xs text-muted-foreground">+{dashboardStats.commentsChange} {t('admin:stats.newToday')}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Reviews</CardTitle>
+                      <CardTitle className="text-sm font-medium">{t('admin:stats.reviews')}</CardTitle>
                       <Star className="w-5 h-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -547,14 +561,50 @@ const AdminDashboard: React.FC = () => {
                       ) : (
                         <div className="text-2xl font-bold">{dashboardStats.totalReviews}</div>
                       )}
-                      <p className="text-xs text-muted-foreground">+{dashboardStats.reviewsChange} new today</p>
+                      <p className="text-xs text-muted-foreground">+{dashboardStats.reviewsChange} {t('admin:stats.newToday')}</p>
                     </CardContent>
                   </Card>
                 </div>
                 
+                {/* User Registration Statistics */}
+                <Card className="mb-8">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{t('admin:stats.userRegistrations')}</CardTitle>
+                    <Users className="w-5 h-5 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    {loadingStats ? (
+                      <div className="text-2xl font-bold">{t('common:loading')}</div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{t('admin:stats.totalUsers')}</p>
+                          <p className="text-2xl font-bold">{dashboardStats.userStats.total}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{t('admin:stats.todayRegistrations')}</p>
+                          <p className="text-2xl font-bold">{dashboardStats.userStats.today}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{t('admin:stats.weekRegistrations')}</p>
+                          <p className="text-2xl font-bold">{dashboardStats.userStats.week}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{t('admin:stats.monthRegistrations')}</p>
+                          <p className="text-2xl font-bold">{dashboardStats.userStats.month}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{t('admin:stats.yearRegistrations')}</p>
+                          <p className="text-2xl font-bold">{dashboardStats.userStats.year}</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                
                 <Card>
                   <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
+                    <CardTitle>{t('admin:activity.title')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {loadingActivity ? (
@@ -576,10 +626,10 @@ const AdminDashboard: React.FC = () => {
                                 </Avatar>
                                 <div>
                                   <span className="font-medium">
-                                    {activity.type === 'comment' ? 'Comment' : 'Review'}
+                                    {activity.type === 'comment' ? t('admin:activity.comment') : t('admin:activity.review')}
                                   </span>
                                   <span className="text-muted-foreground ml-2">
-                                    by <a 
+                                    {t('admin:activity.by')} <a 
                                       href={`/profile/${activity.userId}`}
                                       className="text-primary hover:underline"
                                       target="_blank"
@@ -598,7 +648,7 @@ const AdminDashboard: React.FC = () => {
                               <div>
                                 {activity.type === 'review' && (
                                   <div className="mb-2">
-                                    <label className="block text-sm font-medium mb-1">Rating (1-10):</label>
+                                    <label className="block text-sm font-medium mb-1">{t('admin:activity.rating')} (1-10):</label>
                                     <input
                                       type="number"
                                       min="1"
@@ -627,14 +677,14 @@ const AdminDashboard: React.FC = () => {
                                     size="sm" 
                                     onClick={() => handleSaveEdit(activity.id)}
                                   >
-                                    Save
+                                    {t('admin:activity.save')}
                                   </Button>
                                   <Button 
                                     variant="outline" 
                                     size="sm" 
                                     onClick={handleCancelEdit}
                                   >
-                                    Cancel
+                                    {t('admin:activity.cancel')}
                                   </Button>
                                 </div>
                               </div>
@@ -653,7 +703,7 @@ const AdminDashboard: React.FC = () => {
                                     {activity.bookTitle}
                                   </a>
                                   {activity.type === 'review' && activity.rating && (
-                                    <span className="ml-2">Rating: {activity.rating}/10</span>
+                                    <span className="ml-2">{t('admin:activity.rating')}: {activity.rating}/10</span>
                                   )}
                                 </div>
                                 <div className="mt-1 flex items-center justify-between">
@@ -663,21 +713,21 @@ const AdminDashboard: React.FC = () => {
                                       size="sm" 
                                       onClick={() => handleEditActivity(activity)}
                                     >
-                                      Edit
+                                      {t('admin:activity.edit')}
                                     </Button>
                                     <Button 
                                       variant="outline" 
                                       size="sm" 
                                       onClick={() => handleDeleteActivity(activity)}
                                     >
-                                      Delete
+                                      {t('admin:activity.delete')}
                                     </Button>
                                     <Button 
                                       variant="secondary" 
                                       size="sm" 
                                       onClick={() => window.open(`/book/${activity.bookId}`, '_blank', 'noopener,noreferrer')}
                                     >
-                                      Show
+                                      {t('admin:activity.show')}
                                     </Button>
                                   </div>
                                 </div>
@@ -691,7 +741,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between mt-6 pt-4 border-t">
                         <div className="flex items-center gap-4">
                           <div className="text-sm text-muted-foreground">
-                            Showing {((activityPage - 1) * activityItemsPerPage) + 1} to {Math.min(activityPage * activityItemsPerPage, activityTotal)} of {activityTotal}
+                            {t('admin:activity.showing')} {((activityPage - 1) * activityItemsPerPage) + 1} {t('admin:activity.to')} {Math.min(activityPage * activityItemsPerPage, activityTotal)} {t('admin:activity.of')} {activityTotal}
                           </div>
                           <Select value={activityItemsPerPage.toString()} onValueChange={(value) => {
                             setActivityItemsPerPage(parseInt(value));
@@ -701,11 +751,11 @@ const AdminDashboard: React.FC = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="5">5 per page</SelectItem>
-                              <SelectItem value="10">10 per page</SelectItem>
-                              <SelectItem value="20">20 per page</SelectItem>
-                              <SelectItem value="50">50 per page</SelectItem>
-                              <SelectItem value="100">100 per page</SelectItem>
+                              <SelectItem value="5">5 {t('admin:activity.perPage')}</SelectItem>
+                              <SelectItem value="10">10 {t('admin:activity.perPage')}</SelectItem>
+                              <SelectItem value="20">20 {t('admin:activity.perPage')}</SelectItem>
+                              <SelectItem value="50">50 {t('admin:activity.perPage')}</SelectItem>
+                              <SelectItem value="100">100 {t('admin:activity.perPage')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -717,10 +767,10 @@ const AdminDashboard: React.FC = () => {
                             disabled={activityPage === 1}
                           >
                             <ChevronLeft className="h-4 w-4" />
-                            Previous
+                            {t('admin:activity.previous')}
                           </Button>
                           <div className="text-sm text-muted-foreground px-2">
-                            Page {activityPage} of {activityTotalPages}
+                            {t('admin:activity.page')} {activityPage} {t('admin:activity.of')} {activityTotalPages}
                           </div>
                           <Button
                             variant="outline"
@@ -728,14 +778,14 @@ const AdminDashboard: React.FC = () => {
                             onClick={() => setActivityPage(prev => Math.min(activityTotalPages, prev + 1))}
                             disabled={activityPage === activityTotalPages}
                           >
-                            Next
+                            {t('admin:activity.next')}
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
                     </>
                     ) : (
-                      <p className="text-muted-foreground">No recent activity to display.</p>
+                      <p className="text-muted-foreground">{t('admin:activity.noActivity')}</p>
                     )}
                   </CardContent>
                 </Card>

@@ -83,8 +83,9 @@ interface UserWithStats {
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation(['admin', 'common']);
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
+  const { toast } = useToast();
   const [pagination, setPagination] = useState({
     page: 1,
     limit: (() => {
@@ -116,7 +117,6 @@ const UserManagement: React.FC = () => {
   }, [pagination.limit]);
   const [newAccessLevel, setNewAccessLevel] = useState('');
   const [blockReason, setBlockReason] = useState('');
-  const { toast } = useToast();
 
   // Debounce search input
   useEffect(() => {
@@ -155,8 +155,8 @@ const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch users. Please try again.",
+        title: t('admin:common.error'),
+        description: t('admin:users.failedToLoad'),
         variant: "destructive"
       });
       setLoading(false);
@@ -191,8 +191,8 @@ const UserManagement: React.FC = () => {
       }
 
       toast({
-        title: "Success",
-        description: "User updated successfully"
+        title: t('admin:common.success'),
+        description: t('admin:users.userUpdated')
       });
 
       setOpenEditUser(false);
@@ -203,8 +203,8 @@ const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('Error updating user:', error);
       toast({
-        title: "Error",
-        description: "Failed to update user. Please try again.",
+        title: t('admin:common.error'),
+        description: t('admin:users.failedToUpdate'),
         variant: "destructive"
       });
     }
@@ -215,8 +215,8 @@ const UserManagement: React.FC = () => {
 
     if (newPassword !== confirmNewPassword) {
       toast({
-        title: "Error",
-        description: "Passwords do not match",
+        title: t('admin:common.error'),
+        description: t('admin:users.passwordsDoNotMatch'),
         variant: "destructive"
       });
       return;
@@ -237,8 +237,8 @@ const UserManagement: React.FC = () => {
       }
 
       toast({
-        title: "Success",
-        description: "Password changed successfully"
+        title: t('admin:common.success'),
+        description: t('admin:users.passwordChanged')
       });
 
       setOpenChangePassword(false);
@@ -248,8 +248,8 @@ const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('Error changing password:', error);
       toast({
-        title: "Error",
-        description: "Failed to change password. Please try again.",
+        title: t('admin:common.error'),
+        description: t('admin:users.failedToChangePassword'),
         variant: "destructive"
       });
     }
@@ -290,15 +290,15 @@ const UserManagement: React.FC = () => {
         impersonateWindow.location.href = `/profile/${data.user.username}`;
         
         toast({
-          title: "Success",
-          description: `Now impersonating ${data.user.username}`
+          title: t('admin:common.success'),
+          description: t('admin:users.impersonating', { username: data.user.username })
         });
       }
     } catch (error) {
       console.error('Error impersonating user:', error);
       toast({
-        title: "Error",
-        description: "Failed to impersonate user. Please try again.",
+        title: t('admin:common.error'),
+        description: t('admin:users.failedToImpersonate'),
         variant: "destructive"
       });
     }
@@ -328,10 +328,10 @@ const UserManagement: React.FC = () => {
       }
 
       toast({
-        title: "Success",
+        title: t('admin:common.success'),
         description: newAccessLevel === 'blocked' 
-          ? "User has been blocked successfully" 
-          : "Access level changed successfully"
+          ? t('admin:users.userBlocked')
+          : t('admin:users.accessLevelChanged')
       });
 
       setOpenChangeAccessLevel(false);
@@ -344,15 +344,15 @@ const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('Error changing access level:', error);
       toast({
-        title: "Error",
-        description: "Failed to update user. Please try again.",
+        title: t('admin:common.error'),
+        description: t('admin:users.failedToUpdate'),
         variant: "destructive"
       });
     }
   };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never';
+    if (!dateString) return t('admin:users.never');
     return formatAbsoluteDateTime(dateString, dateLocale);
   };
 
@@ -372,7 +372,7 @@ const UserManagement: React.FC = () => {
   if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-lg">Loading users...</div>
+        <div className="text-lg">{t('admin:common.loading')}</div>
       </div>
     );
   }
@@ -381,12 +381,12 @@ const UserManagement: React.FC = () => {
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader>
-          <CardTitle>User Management</CardTitle>
+          <CardTitle>{t('admin:users.title')}</CardTitle>
           <div className="flex items-center gap-4 mt-4">
             <SearchInput
               value={search}
               onChange={setSearch}
-              placeholder="Search by login, name, or email..."
+              placeholder={t('admin:users.searchPlaceholder')}
             />
             <Select 
               value={pagination.limit.toString()} 
@@ -398,11 +398,11 @@ const UserManagement: React.FC = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">5 per page</SelectItem>
-                <SelectItem value="10">10 per page</SelectItem>
-                <SelectItem value="20">20 per page</SelectItem>
-                <SelectItem value="50">50 per page</SelectItem>
-                <SelectItem value="100">100 per page</SelectItem>
+                <SelectItem value="5">5 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="10">10 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="20">20 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="50">50 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="100">100 {t('admin:activity.perPage')}</SelectItem>
               </SelectContent>
             </Select>
             {debouncedSearch && (
@@ -410,13 +410,13 @@ const UserManagement: React.FC = () => {
                 variant="outline"
                 onClick={() => setSearch('')}
               >
-                Clear
+                {t('admin:common.clear')}
               </Button>
             )}
           </div>
           {debouncedSearch && (
             <p className="text-sm text-muted-foreground mt-2">
-              Search results for: "{debouncedSearch}"
+              {t('admin:users.searchResults')}: "{debouncedSearch}"
             </p>
           )}
         </CardHeader>
@@ -424,18 +424,18 @@ const UserManagement: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Avatar</TableHead>
-                <TableHead>Login</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Registration Date</TableHead>
-                <TableHead>Last Login</TableHead>
-                <TableHead>Shelves</TableHead>
-                <TableHead>Books</TableHead>
-                <TableHead>Comments</TableHead>
-                <TableHead>Reviews</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t('admin:users.avatar')}</TableHead>
+                <TableHead>{t('admin:users.login')}</TableHead>
+                <TableHead>{t('admin:users.name')}</TableHead>
+                <TableHead>{t('admin:users.email')}</TableHead>
+                <TableHead>{t('admin:users.status')}</TableHead>
+                <TableHead>{t('admin:users.registrationDate')}</TableHead>
+                <TableHead>{t('admin:users.lastLogin')}</TableHead>
+                <TableHead>{t('admin:users.shelves')}</TableHead>
+                <TableHead>{t('admin:users.books')}</TableHead>
+                <TableHead>{t('admin:users.comments')}</TableHead>
+                <TableHead>{t('admin:users.reviews')}</TableHead>
+                <TableHead>{t('admin:users.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -464,13 +464,13 @@ const UserManagement: React.FC = () => {
                       {user.isBlocked && (
                         <Badge variant="destructive" className="flex items-center gap-1">
                           <Ban className="w-3 h-3" />
-                          Blocked
+                          {t('admin:users.blocked')}
                         </Badge>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{user.fullName || 'N/A'}</TableCell>
-                  <TableCell>{user.email || 'N/A'}</TableCell>
+                  <TableCell>{user.fullName || t('admin:common.na')}</TableCell>
+                  <TableCell>{user.email || t('admin:common.na')}</TableCell>
                   <TableCell>
                     <Badge variant={getAccessLevelBadgeVariant(user.accessLevel)}>
                       {user.accessLevel.charAt(0).toUpperCase() + user.accessLevel.slice(1)}
@@ -499,7 +499,7 @@ const UserManagement: React.FC = () => {
                         }}
                       >
                         <Edit className="w-4 h-4 mr-1" />
-                        Edit
+                        {t('admin:users.edit')}
                       </Button>
                       <Button 
                         variant="outline" 
@@ -509,14 +509,14 @@ const UserManagement: React.FC = () => {
                           setOpenChangePassword(true);
                         }}
                       >
-                        Change Password
+                        {t('admin:users.changePassword')}
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => handleImpersonate(user)}
                       >
-                        Impersonate
+                        {t('admin:users.impersonate')}
                       </Button>
                       <Button 
                         variant="outline" 
@@ -527,7 +527,7 @@ const UserManagement: React.FC = () => {
                           setOpenChangeAccessLevel(true);
                         }}
                       >
-                        Change Access Level
+                        {t('admin:users.changeAccessLevel')}
                       </Button>
                     </div>
                   </TableCell>
@@ -583,21 +583,21 @@ const UserManagement: React.FC = () => {
       <Dialog open={openChangePassword} onOpenChange={setOpenChangePassword}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Password for {selectedUser?.username}</DialogTitle>
+            <DialogTitle>{t('admin:users.changePasswordFor', { username: selectedUser?.username })}</DialogTitle>
             <DialogDescription>
-              Enter a new password for this user.
+              {t('admin:users.enterNewPassword')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input
               type="password"
-              placeholder="New password"
+              placeholder={t('admin:users.newPassword')}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
             <Input
               type="password"
-              placeholder="Confirm new password"
+              placeholder={t('admin:users.confirmNewPassword')}
               value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)}
             />
@@ -612,10 +612,10 @@ const UserManagement: React.FC = () => {
                 setSelectedUser(null);
               }}
             >
-              Cancel
+              {t('admin:common.cancel')}
             </Button>
             <Button onClick={handleChangePassword}>
-              Change Password
+              {t('admin:users.changePassword')}
             </Button>
           </div>
         </DialogContent>
@@ -625,14 +625,14 @@ const UserManagement: React.FC = () => {
       <Dialog open={openChangeAccessLevel} onOpenChange={setOpenChangeAccessLevel}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Change Access Level for {selectedUser?.username}</DialogTitle>
+            <DialogTitle>{t('admin:users.changeAccessLevelFor', { username: selectedUser?.username })}</DialogTitle>
             <DialogDescription>
-              Select a new access level for this user, or block them.
+              {t('admin:users.selectNewAccessLevel')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="access-level">Access Level</Label>
+              <Label htmlFor="access-level">{t('admin:users.accessLevel')}</Label>
               <select
                 id="access-level"
                 className="w-full p-2 border rounded-md"
@@ -644,26 +644,26 @@ const UserManagement: React.FC = () => {
                   }
                 }}
               >
-                <option value="">Select access level</option>
-                <option value="user">User</option>
-                <option value="moder">Moderator</option>
-                <option value="admin">Admin</option>
-                <option value="blocked">Blocked</option>
+                <option value="">{t('admin:users.selectAccessLevel')}</option>
+                <option value="user">{t('admin:users.user')}</option>
+                <option value="moder">{t('admin:users.moderator')}</option>
+                <option value="admin">{t('admin:users.admin')}</option>
+                <option value="blocked">{t('admin:users.blocked')}</option>
               </select>
             </div>
             
             {newAccessLevel === 'blocked' && (
               <div className="space-y-2">
-                <Label htmlFor="block-reason">Block Reason</Label>
+                <Label htmlFor="block-reason">{t('admin:users.blockReason')}</Label>
                 <textarea
                   id="block-reason"
                   className="w-full p-2 border rounded-md min-h-[100px]"
                   value={blockReason}
                   onChange={(e) => setBlockReason(e.target.value)}
-                  placeholder="Enter reason for blocking. You can include links like: https://example.com/rules"
+                  placeholder={t('admin:users.blockReasonPlaceholder')}
                 />
                 <p className="text-xs text-muted-foreground">
-                  This message will be shown to the user when they try to log in. URLs will be automatically converted to clickable links.
+                  {t('admin:users.blockReasonHelp')}
                 </p>
               </div>
             )}
@@ -678,10 +678,10 @@ const UserManagement: React.FC = () => {
                 setSelectedUser(null);
               }}
             >
-              Cancel
+              {t('admin:common.cancel')}
             </Button>
             <Button onClick={handleChangeAccessLevel} disabled={!newAccessLevel}>
-              {newAccessLevel === 'blocked' ? 'Block User' : 'Update Access Level'}
+              {newAccessLevel === 'blocked' ? t('admin:users.blockUser') : t('admin:users.updateAccessLevel')}
             </Button>
           </div>
         </DialogContent>
@@ -691,47 +691,47 @@ const UserManagement: React.FC = () => {
       <Dialog open={openEditUser} onOpenChange={setOpenEditUser}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User: {selectedUser?.username}</DialogTitle>
+            <DialogTitle>{t('admin:users.editUser', { username: selectedUser?.username })}</DialogTitle>
             <DialogDescription>
-              Update user information.
+              {t('admin:users.updateUserInfo')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-username">Login (Username)</Label>
+              <Label htmlFor="edit-username">{t('admin:users.loginUsername')}</Label>
               <Input
                 id="edit-username"
                 value={editFormData.username}
                 onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
-                placeholder="Username"
+                placeholder={t('admin:users.username')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-fullName">Full Name</Label>
+              <Label htmlFor="edit-fullName">{t('admin:users.fullName')}</Label>
               <Input
                 id="edit-fullName"
                 value={editFormData.fullName}
                 onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
-                placeholder="Full Name"
+                placeholder={t('admin:users.fullName')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email">{t('admin:users.email')}</Label>
               <Input
                 id="edit-email"
                 type="email"
                 value={editFormData.email}
                 onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                placeholder="Email"
+                placeholder={t('admin:users.email')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-bio">Bio</Label>
+              <Label htmlFor="edit-bio">{t('admin:users.bio')}</Label>
               <Input
                 id="edit-bio"
                 value={editFormData.bio}
                 onChange={(e) => setEditFormData({ ...editFormData, bio: e.target.value })}
-                placeholder="Bio (optional)"
+                placeholder={t('admin:users.bioOptional')}
               />
             </div>
           </div>
@@ -743,10 +743,10 @@ const UserManagement: React.FC = () => {
                 setSelectedUser(null);
               }}
             >
-              Cancel
+              {t('admin:common.cancel')}
             </Button>
             <Button onClick={handleEditUser}>
-              Save Changes
+              {t('admin:users.saveChanges')}
             </Button>
           </DialogFooter>
         </DialogContent>

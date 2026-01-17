@@ -30,6 +30,7 @@ import { adminBooksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { BookEditDialog } from '@/components/BookEditDialog';
 import { BookUploadDialog } from '@/components/BookUploadDialog';
+import { useTranslation } from 'react-i18next';
 
 interface Book {
   id: string;
@@ -60,6 +61,8 @@ interface Pagination {
 }
 
 const BooksManagement = () => {
+  const { t } = useTranslation(['admin', 'common']);
+  const { toast } = useToast();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -78,7 +81,6 @@ const BooksManagement = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const { toast } = useToast();
 
   // Save pagination limit to localStorage
   useEffect(() => {
@@ -116,8 +118,8 @@ const BooksManagement = () => {
     } catch (error) {
       console.error('Error fetching books:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load books',
+        title: t('admin:common.error'),
+        description: t('admin:books.failedToLoad'),
         variant: 'destructive',
       });
     } finally {
@@ -154,21 +156,21 @@ const BooksManagement = () => {
 
       if (response.ok) {
         toast({
-          title: 'Book deleted',
-          description: `"${bookToDelete.title}" has been successfully deleted.`,
+          title: t('admin:books.bookDeleted'),
+          description: t('admin:books.bookDeletedMessage', { title: `"${bookToDelete.title}"` }),
         });
         setDeleteDialogOpen(false);
         setBookToDelete(null);
         fetchBooks();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete book');
+        throw new Error(errorData.error || t('admin:books.failedToDelete'));
       }
     } catch (error) {
       console.error('Error deleting book:', error);
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete book',
+        title: t('admin:common.error'),
+        description: error instanceof Error ? error.message : t('admin:books.failedToDelete'),
         variant: 'destructive',
       });
     }
@@ -181,7 +183,7 @@ const BooksManagement = () => {
   };
 
   const formatDate = (dateString: string): string => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return t('admin:common.na');
     return new Date(dateString).toLocaleDateString();
   };
 
@@ -192,21 +194,21 @@ const BooksManagement = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Books Management</h2>
+        <h2 className="text-2xl font-bold">{t('admin:books.title')}</h2>
         <Button onClick={() => setUploadDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Add New Book
+          {t('admin:books.addNewBook')}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Books</CardTitle>
+          <CardTitle>{t('admin:books.allBooks')}</CardTitle>
           <div className="flex items-center gap-4 mt-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search by title, author, or genre..."
+                placeholder={t('admin:books.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
@@ -222,11 +224,11 @@ const BooksManagement = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">5 per page</SelectItem>
-                <SelectItem value="10">10 per page</SelectItem>
-                <SelectItem value="20">20 per page</SelectItem>
-                <SelectItem value="50">50 per page</SelectItem>
-                <SelectItem value="100">100 per page</SelectItem>
+                <SelectItem value="5">5 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="10">10 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="20">20 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="50">50 {t('admin:activity.perPage')}</SelectItem>
+                <SelectItem value="100">100 {t('admin:activity.perPage')}</SelectItem>
               </SelectContent>
             </Select>
             {debouncedSearch && (
@@ -234,22 +236,22 @@ const BooksManagement = () => {
                 variant="outline"
                 onClick={() => setSearch('')}
               >
-                Clear
+                {t('admin:common.clear')}
               </Button>
             )}
           </div>
           {debouncedSearch && (
             <p className="text-sm text-muted-foreground mt-2">
-              Search results for: "{debouncedSearch}"
+              {t('admin:books.searchResults')} "{debouncedSearch}"
             </p>
           )}
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8">Loading books...</div>
+            <div className="text-center py-8">{t('admin:common.loading')}</div>
           ) : books.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {debouncedSearch ? 'No books found matching your search.' : 'No books available.'}
+              {debouncedSearch ? t('admin:books.noBooksFound') : t('admin:books.noBooksAvailable')}
             </div>
           ) : (
             <>
@@ -257,16 +259,16 @@ const BooksManagement = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cover</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Author</TableHead>
-                      <TableHead>Genre</TableHead>
-                      <TableHead>Year</TableHead>
-                      <TableHead>Rating</TableHead>
-                      <TableHead>Uploader</TableHead>
-                      <TableHead>File Size</TableHead>
-                      <TableHead>Uploaded</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('admin:books.cover')}</TableHead>
+                      <TableHead>{t('admin:books.titleHeader')}</TableHead>
+                      <TableHead>{t('admin:books.author')}</TableHead>
+                      <TableHead>{t('admin:books.genre')}</TableHead>
+                      <TableHead>{t('admin:books.year')}</TableHead>
+                      <TableHead>{t('admin:books.rating')}</TableHead>
+                      <TableHead>{t('admin:books.uploader')}</TableHead>
+                      <TableHead>{t('admin:books.fileSize')}</TableHead>
+                      <TableHead>{t('admin:books.uploaded')}</TableHead>
+                      <TableHead className="text-right">{t('admin:common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -288,7 +290,7 @@ const BooksManagement = () => {
                             </a>
                           ) : (
                             <div className="w-10 h-14 bg-muted rounded flex items-center justify-center text-xs">
-                              No cover
+                              {t('admin:books.noCover')}
                             </div>
                           )}
                         </TableCell>
@@ -303,10 +305,10 @@ const BooksManagement = () => {
                           </a>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">{book.author}</TableCell>
-                        <TableCell>{book.genre || 'N/A'}</TableCell>
-                        <TableCell>{book.publishedYear || 'N/A'}</TableCell>
+                        <TableCell>{book.genre || t('admin:common.na')}</TableCell>
+                        <TableCell>{book.publishedYear || t('admin:common.na')}</TableCell>
                         <TableCell>
-                          {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
+                          {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : t('admin:common.na')}
                         </TableCell>
                         <TableCell>
                           <a
@@ -347,9 +349,9 @@ const BooksManagement = () => {
               {/* Pagination */}
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
-                  Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                  {pagination.total} books
+                  {t('admin:activity.showing')} {(pagination.page - 1) * pagination.limit + 1} {t('admin:activity.to')}{' '}
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} {t('admin:activity.of')}{' '}
+                  {pagination.total} {t('admin:books.books')}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -359,10 +361,10 @@ const BooksManagement = () => {
                     disabled={pagination.page === 1}
                   >
                     <ChevronLeft className="w-4 h-4" />
-                    Previous
+                    {t('admin:activity.previous')}
                   </Button>
                   <div className="text-sm">
-                    Page {pagination.page} of {pagination.pages}
+                    {t('admin:activity.page')} {pagination.page} {t('admin:activity.of')} {pagination.pages}
                   </div>
                   <Button
                     variant="outline"
@@ -370,7 +372,7 @@ const BooksManagement = () => {
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page === pagination.pages}
                   >
-                    Next
+                    {t('admin:activity.next')}
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -384,29 +386,17 @@ const BooksManagement = () => {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Book</DialogTitle>
+            <DialogTitle>{t('admin:books.deleteBook')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{bookToDelete?.title}" by {bookToDelete?.author}?
-              <br />
-              <br />
-              <strong>Warning:</strong> This action will permanently delete the book and all
-              associated data including:
-              <ul className="list-disc list-inside mt-2 text-sm">
-                <li>Reading progress records</li>
-                <li>Bookmarks</li>
-                <li>Comments and reviews</li>
-                <li>View statistics</li>
-              </ul>
-              <br />
-              This action cannot be undone.
+              {t('admin:books.deleteConfirmMessage')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
+              {t('admin:common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Delete Book
+              {t('admin:books.deleteBook')}
             </Button>
           </DialogFooter>
         </DialogContent>

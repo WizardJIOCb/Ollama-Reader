@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, ChevronLeft, ChevronRight, Heart, Trash2 } from 'lucide-react';
 import { apiCall, newsReactionsApi } from '@/lib/api';
+import { useTranslation } from 'react-i18next';
 import {
   Select,
   SelectContent,
@@ -51,6 +52,7 @@ interface Reaction {
 }
 
 const NewsManagement: React.FC = () => {
+  const { t } = useTranslation(['admin', 'common']);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +167,7 @@ const NewsManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this news item?')) {
+    if (!window.confirm(t('admin:news.deleteConfirm'))) {
       return;
     }
     
@@ -196,7 +198,7 @@ const NewsManagement: React.FC = () => {
   };
 
   const handleDeleteReaction = async (reactionId: string) => {
-    if (!window.confirm('Are you sure you want to delete this reaction?')) {
+    if (!window.confirm(t('admin:news.deleteReactionConfirm'))) {
       return;
     }
     
@@ -230,7 +232,7 @@ const NewsManagement: React.FC = () => {
       <div className="p-6">
         <Card>
           <CardContent className="p-8 text-center">
-            Loading news items...
+            {t('admin:common.loading')}
           </CardContent>
         </Card>
       </div>
@@ -252,10 +254,10 @@ const NewsManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">News Management</h2>
+        <h2 className="text-2xl font-bold">{t('admin:news.title')}</h2>
         <div className="flex items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            {totalNews} total news item{totalNews !== 1 ? 's' : ''}
+            {totalNews} {totalNews === 1 ? t('admin:news.totalNews') : t('admin:news.totalNewsPlural')}
           </p>
           <Select value={itemsPerPage.toString()} onValueChange={(value) => {
             setItemsPerPage(parseInt(value));
@@ -265,15 +267,15 @@ const NewsManagement: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="5">5 per page</SelectItem>
-              <SelectItem value="10">10 per page</SelectItem>
-              <SelectItem value="20">20 per page</SelectItem>
-              <SelectItem value="50">50 per page</SelectItem>
-              <SelectItem value="100">100 per page</SelectItem>
+              <SelectItem value="5">5 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="10">10 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="20">20 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="50">50 {t('admin:activity.perPage')}</SelectItem>
+              <SelectItem value="100">100 {t('admin:activity.perPage')}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Cancel' : editingNews ? 'Cancel Edit' : 'Add News'}
+            {showForm ? t('admin:common.cancel') : editingNews ? t('admin:news.cancelEdit') : t('admin:news.addNews')}
           </Button>
         </div>
       </div>
@@ -281,60 +283,60 @@ const NewsManagement: React.FC = () => {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>{editingNews ? 'Edit News' : 'Create News'}</CardTitle>
+            <CardTitle>{editingNews ? t('admin:news.editNews') : t('admin:news.createNews')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreateNews} className="space-y-4">
               <div>
-                <Label htmlFor="title">Title (Russian)</Label>
+                <Label htmlFor="title">{t('admin:news.titleRussian')}</Label>
                 <Input
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  placeholder="Заголовок на русском"
+                  placeholder={t('admin:news.titleRussianPlaceholder')}
                 />
               </div>
               <div>
-                <Label htmlFor="titleEn">Title (English)</Label>
+                <Label htmlFor="titleEn">{t('admin:news.titleEnglish')}</Label>
                 <Input
                   id="titleEn"
                   value={titleEn}
                   onChange={(e) => setTitleEn(e.target.value)}
-                  placeholder="Title in English (optional)"
+                  placeholder={t('admin:news.titleEnglishPlaceholder')}
                 />
               </div>
               <div>
-                <Label htmlFor="slug">Slug (URL alias)</Label>
+                <Label htmlFor="slug">{t('admin:news.slug')}</Label>
                 <Input
                   id="slug"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  placeholder="e.g., reader-launch"
+                  placeholder={t('admin:news.slugPlaceholder')}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Optional. Leave empty to use ID in URL. Use lowercase letters, numbers, and hyphens only.
+                  {t('admin:news.slugHelp')}
                 </p>
               </div>
               <div>
-                <Label htmlFor="content">Content (Russian)</Label>
+                <Label htmlFor="content">{t('admin:news.contentRussian')}</Label>
                 <Textarea
                   id="content"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   required
                   rows={6}
-                  placeholder="Содержание на русском"
+                  placeholder={t('admin:news.contentRussianPlaceholder')}
                 />
               </div>
               <div>
-                <Label htmlFor="contentEn">Content (English)</Label>
+                <Label htmlFor="contentEn">{t('admin:news.contentEnglish')}</Label>
                 <Textarea
                   id="contentEn"
                   value={contentEn}
                   onChange={(e) => setContentEn(e.target.value)}
                   rows={6}
-                  placeholder="Content in English (optional)"
+                  placeholder={t('admin:news.contentEnglishPlaceholder')}
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -343,15 +345,15 @@ const NewsManagement: React.FC = () => {
                   checked={published}
                   onCheckedChange={setPublished}
                 />
-                <Label htmlFor="published">Published</Label>
+                <Label htmlFor="published">{t('admin:news.published')}</Label>
               </div>
               <div className="flex space-x-2">
                 <Button type="submit">
-                  {editingNews ? 'Update News' : 'Create News'}
+                  {editingNews ? t('admin:news.updateNews') : t('admin:news.createNews')}
                 </Button>
                 {editingNews && (
                   <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancel
+                    {t('admin:common.cancel')}
                   </Button>
                 )}
               </div>
@@ -362,7 +364,7 @@ const NewsManagement: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>News Items</CardTitle>
+          <CardTitle>{t('admin:news.newsItems')}</CardTitle>
         </CardHeader>
         <CardContent>
           {newsItems.length > 0 ? (
@@ -390,7 +392,7 @@ const NewsManagement: React.FC = () => {
                           <h3 className="font-semibold text-lg">{newsItem.title}</h3>
                         </a>
                         <p className="text-sm text-muted-foreground mt-1">
-                          By{' '}
+                          {t('admin:news.by')}{' '}
                           <a 
                             href={`/profile/${newsItem.authorId}`}
                             target="_blank"
@@ -403,7 +405,7 @@ const NewsManagement: React.FC = () => {
                         </p>
                         <div className="flex items-center mt-2">
                           <span className={`text-xs px-2 py-1 rounded-full ${newsItem.published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                            {newsItem.published ? 'Published' : 'Draft'}
+                            {newsItem.published ? t('admin:news.published') : t('admin:news.draft')}
                           </span>
                           {newsItem.reactionCount !== undefined && newsItem.reactionCount > 0 && (
                             <span className="text-xs px-2 py-1 ml-2 rounded-full bg-blue-100 text-blue-800 flex items-center gap-1">
@@ -424,21 +426,21 @@ const NewsManagement: React.FC = () => {
                         onClick={() => handleShowReactions(newsItem)}
                       >
                         <Heart className="w-4 h-4 mr-1" />
-                        Reactions
+                        {t('admin:news.reactions')}
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleEdit(newsItem)}
                       >
-                        Edit
+                        {t('admin:activity.edit')}
                       </Button>
                       <Button 
                         variant="destructive" 
                         size="sm" 
                         onClick={() => handleDelete(newsItem.id)}
                       >
-                        Delete
+                        {t('admin:activity.delete')}
                       </Button>
                     </div>
                   </div>
@@ -449,7 +451,7 @@ const NewsManagement: React.FC = () => {
             {/* Pagination Controls */}
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalNews)} of {totalNews}
+                {t('admin:activity.showing')} {((currentPage - 1) * itemsPerPage) + 1} {t('admin:activity.to')} {Math.min(currentPage * itemsPerPage, totalNews)} {t('admin:activity.of')} {totalNews}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -459,10 +461,10 @@ const NewsManagement: React.FC = () => {
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t('admin:activity.previous')}
                 </Button>
                 <div className="text-sm text-muted-foreground px-2">
-                  Page {currentPage} of {totalPages}
+                  {t('admin:activity.page')} {currentPage} {t('admin:activity.of')} {totalPages}
                 </div>
                 <Button
                   variant="outline"
@@ -470,7 +472,7 @@ const NewsManagement: React.FC = () => {
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  Next
+                  {t('admin:activity.next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -478,7 +480,7 @@ const NewsManagement: React.FC = () => {
           </>
           ) : (
             <p className="text-center text-muted-foreground py-4">
-              No news items found. Create your first news item!
+              {t('admin:news.noNewsItems')}
             </p>
           )}
         </CardContent>
@@ -488,17 +490,17 @@ const NewsManagement: React.FC = () => {
       <Dialog open={reactionsDialogOpen} onOpenChange={setReactionsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Reactions for: {selectedNewsForReactions?.title}</DialogTitle>
+            <DialogTitle>{t('admin:news.reactionsFor')} {selectedNewsForReactions?.title}</DialogTitle>
             <DialogDescription>
-              Total reactions: {reactions.length}
+              {t('admin:news.totalReactions')} {reactions.length}
             </DialogDescription>
           </DialogHeader>
           
           {reactionsLoading ? (
-            <div className="text-center py-8">Loading reactions...</div>
+            <div className="text-center py-8">{t('admin:news.loadingReactions')}</div>
           ) : reactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No reactions yet for this news article.
+              {t('admin:news.noReactions')}
             </div>
           ) : (
             <div className="space-y-4">
@@ -515,7 +517,7 @@ const NewsManagement: React.FC = () => {
                 <div key={emoji} className="border rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-2xl">{emoji}</span>
-                    <span className="font-semibold">{emojiReactions.length} reaction{emojiReactions.length !== 1 ? 's' : ''}</span>
+                    <span className="font-semibold">{emojiReactions.length} {emojiReactions.length === 1 ? t('admin:news.reaction') : t('admin:news.reactionsPlural')}</span>
                   </div>
                   <div className="space-y-2">
                     {emojiReactions.map((reaction) => (
@@ -558,7 +560,7 @@ const NewsManagement: React.FC = () => {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setReactionsDialogOpen(false)}>
-              Close
+              {t('admin:common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>

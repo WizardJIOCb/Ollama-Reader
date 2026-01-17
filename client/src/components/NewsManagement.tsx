@@ -6,8 +6,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { User } from 'lucide-react';
-import { apiCall } from '@/lib/api';
+import { User, ChevronLeft, ChevronRight, Heart, Trash2 } from 'lucide-react';
+import { apiCall, newsReactionsApi } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface NewsItem {
   id: string;
@@ -22,6 +37,17 @@ interface NewsItem {
   published: boolean;
   createdAt: string;
   publishedAt: string | null;
+  reactionCount?: number;
+}
+
+interface Reaction {
+  id: string;
+  userId: string;
+  newsId: string;
+  emoji: string;
+  createdAt: string;
+  userFullName?: string;
+  userUsername?: string;
 }
 
 const NewsManagement: React.FC = () => {
@@ -30,6 +56,22 @@ const NewsManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingNews, setEditingNews] = useState<NewsItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = localStorage.getItem('admin_news_page');
+    return saved ? parseInt(saved) : 1;
+  });
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalNews, setTotalNews] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('admin_news_limit');
+    return saved ? parseInt(saved) : 20;
+  });
+  
+  // Reactions dialog state
+  const [reactionsDialogOpen, setReactionsDialogOpen] = useState(false);
+  const [selectedNewsForReactions, setSelectedNewsForReactions] = useState<NewsItem | null>(null);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [reactionsLoading, setReactionsLoading] = useState(false);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -40,19 +82,33 @@ const NewsManagement: React.FC = () => {
   const [published, setPublished] = useState(false);
   const isInitialMount = useRef(true);
 
+  // Save pagination settings to localStorage
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      fetchNews();
-    }
-  }, []);
+    localStorage.setItem('admin_news_page', currentPage.toString());
+  }, [currentPage]);
+
+  useEffect(() => {
+    localStorage.setItem('admin_news_limit', itemsPerPage.toString());
+  }, [itemsPerPage]);
+
+  useEffect(() => {
+    fetchNews();
+  }, [currentPage, itemsPerPage]);
 
   const fetchNews = async () => {
     try {
       setLoading(true);
-      const response = await apiCall('/api/admin/news');
+      const response = await apiCall(`/api/admin/news?page=${currentPage}&limit=${itemsPerPage}`);
       const data = await response.json();
-      setNewsItems(data);
+      
+      // Handle both paginated response format and array format
+      const items = data.items || data;
+      const total = data.total || items.length;
+      const totalPages = data.totalPages || Math.ceil(total / itemsPerPage);
+      
+      setNewsItems(items);
+      setTotalNews(total);
+      setTotalPages(totalPages);
       setError(null);
     } catch (err) {
       console.error('Error fetching news:', err);
@@ -122,6 +178,42 @@ const NewsManagement: React.FC = () => {
     }
   };
 
+  const handleShowReactions = async (newsItem: NewsItem) => {
+    setSelectedNewsForReactions(newsItem);
+    setReactionsDialogOpen(true);
+    
+    try {
+      setReactionsLoading(true);
+      const response = await newsReactionsApi.getNewsReactions(newsItem.id);
+      const data = await response.json();
+      setReactions(data);
+    } catch (err) {
+      console.error('Error fetching reactions:', err);
+      setError('Failed to load reactions');
+    } finally {
+      setReactionsLoading(false);
+    }
+  };
+
+  const handleDeleteReaction = async (reactionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this reaction?')) {
+      return;
+    }
+    
+    try {
+      await newsReactionsApi.deleteReaction(reactionId);
+      
+      // Remove the reaction from local state
+      setReactions(prevReactions => prevReactions.filter(r => r.id !== reactionId));
+      
+      // Refresh news list to get updated reaction count
+      fetchNews();
+    } catch (err) {
+      console.error('Error deleting reaction:', err);
+      setError('Failed to delete reaction');
+    }
+  };
+
   const resetForm = () => {
     setTitle('');
     setTitleEn('');
@@ -161,9 +253,29 @@ const NewsManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">News Management</h2>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : editingNews ? 'Cancel Edit' : 'Add News'}
-        </Button>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            {totalNews} total news item{totalNews !== 1 ? 's' : ''}
+          </p>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+            setItemsPerPage(parseInt(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5 per page</SelectItem>
+              <SelectItem value="10">10 per page</SelectItem>
+              <SelectItem value="20">20 per page</SelectItem>
+              <SelectItem value="50">50 per page</SelectItem>
+              <SelectItem value="100">100 per page</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Cancel' : editingNews ? 'Cancel Edit' : 'Add News'}
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -254,7 +366,8 @@ const NewsManagement: React.FC = () => {
         </CardHeader>
         <CardContent>
           {newsItems.length > 0 ? (
-            <div className="space-y-4">
+            <>
+              <div className="space-y-4">
               {newsItems.map((newsItem) => (
                 <div key={newsItem.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start">
@@ -268,7 +381,14 @@ const NewsManagement: React.FC = () => {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-lg">{newsItem.title}</h3>
+                        <a 
+                          href={`/news/${newsItem.slug || newsItem.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          <h3 className="font-semibold text-lg">{newsItem.title}</h3>
+                        </a>
                         <p className="text-sm text-muted-foreground mt-1">
                           By{' '}
                           <a 
@@ -285,6 +405,12 @@ const NewsManagement: React.FC = () => {
                           <span className={`text-xs px-2 py-1 rounded-full ${newsItem.published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                             {newsItem.published ? 'Published' : 'Draft'}
                           </span>
+                          {newsItem.reactionCount !== undefined && newsItem.reactionCount > 0 && (
+                            <span className="text-xs px-2 py-1 ml-2 rounded-full bg-blue-100 text-blue-800 flex items-center gap-1">
+                              <Heart className="w-3 h-3" />
+                              {newsItem.reactionCount}
+                            </span>
+                          )}
                         </div>
                         <p className="mt-2 text-muted-foreground line-clamp-2">
                           {newsItem.content.substring(0, 150)}{newsItem.content.length > 150 ? '...' : ''}
@@ -292,6 +418,14 @@ const NewsManagement: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleShowReactions(newsItem)}
+                      >
+                        <Heart className="w-4 h-4 mr-1" />
+                        Reactions
+                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -311,6 +445,37 @@ const NewsManagement: React.FC = () => {
                 </div>
               ))}
             </div>
+            
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalNews)} of {totalNews}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="text-sm text-muted-foreground px-2">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
           ) : (
             <p className="text-center text-muted-foreground py-4">
               No news items found. Create your first news item!
@@ -318,6 +483,86 @@ const NewsManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Reactions Dialog */}
+      <Dialog open={reactionsDialogOpen} onOpenChange={setReactionsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reactions for: {selectedNewsForReactions?.title}</DialogTitle>
+            <DialogDescription>
+              Total reactions: {reactions.length}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {reactionsLoading ? (
+            <div className="text-center py-8">Loading reactions...</div>
+          ) : reactions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No reactions yet for this news article.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Grouped by emoji */}
+              {Object.entries(
+                reactions.reduce((acc, reaction) => {
+                  if (!acc[reaction.emoji]) {
+                    acc[reaction.emoji] = [];
+                  }
+                  acc[reaction.emoji].push(reaction);
+                  return acc;
+                }, {} as Record<string, Reaction[]>)
+              ).map(([emoji, emojiReactions]) => (
+                <div key={emoji} className="border rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">{emoji}</span>
+                    <span className="font-semibold">{emojiReactions.length} reaction{emojiReactions.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {emojiReactions.map((reaction) => (
+                      <div key={reaction.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-6 h-6">
+                            <AvatarFallback>
+                              <User className="w-3 h-3" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {reaction.userFullName || 'Unknown User'}
+                            </p>
+                            {reaction.userUsername && (
+                              <p className="text-xs text-muted-foreground">
+                                @{reaction.userUsername}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {new Date(reaction.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteReaction(reaction.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReactionsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

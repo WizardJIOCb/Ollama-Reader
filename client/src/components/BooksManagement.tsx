@@ -18,6 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Search, Edit, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { adminBooksApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -59,7 +66,10 @@ const BooksManagement = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
-    limit: 20,
+    limit: (() => {
+      const saved = localStorage.getItem('admin_books_limit');
+      return saved ? parseInt(saved) : 20;
+    })(),
     total: 0,
     pages: 0,
   });
@@ -69,6 +79,11 @@ const BooksManagement = () => {
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  // Save pagination limit to localStorage
+  useEffect(() => {
+    localStorage.setItem('admin_books_limit', pagination.limit.toString());
+  }, [pagination.limit]);
 
   // Debounce search input
   useEffect(() => {
@@ -197,6 +212,23 @@ const BooksManagement = () => {
                 className="pl-10"
               />
             </div>
+            <Select 
+              value={pagination.limit.toString()} 
+              onValueChange={(value) => {
+                setPagination((prev) => ({ ...prev, limit: parseInt(value), page: 1 }));
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5 per page</SelectItem>
+                <SelectItem value="10">10 per page</SelectItem>
+                <SelectItem value="20">20 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+                <SelectItem value="100">100 per page</SelectItem>
+              </SelectContent>
+            </Select>
             {debouncedSearch && (
               <Button
                 variant="outline"

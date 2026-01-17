@@ -41,42 +41,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
         
-        // Check if URL has lang parameter - it takes priority
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlLang = urlParams.get('lang');
-        
-        // Get currently selected language from localStorage (user might have changed it before login/registration)
-        const currentlySelectedLanguage = localStorage.getItem('i18nextLng');
-        
-        // Set language from user preference if available, but only if no URL param
-        // and only if user hasn't explicitly selected a different language
-        if (!urlLang && parsedUser.language) {
-          // Only apply user's saved language if there's no active language selection
-          if (!currentlySelectedLanguage || currentlySelectedLanguage === parsedUser.language) {
-            console.log('AuthProvider: Setting language from user data:', parsedUser.language);
-            i18n.changeLanguage(parsedUser.language);
-            localStorage.setItem('i18nextLng', parsedUser.language);
-          } else {
-            console.log('AuthProvider: User has selected language', currentlySelectedLanguage, 'keeping it instead of profile language', parsedUser.language);
+        // Verify user status with backend to check if they're blocked
+        fetch('/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
-        } else if (!urlLang) {
-          // If user has no language preference and no URL param, use i18n's detected language
-          const detectedLanguage = i18n.language || 'en';
-          console.log('AuthProvider: No user language preference, using detected:', detectedLanguage);
-        } else {
-          console.log('AuthProvider: URL lang parameter detected, skipping user language preference');
-        }
+        }).then(async (response) => {
+          if (response.ok) {
+            const freshUserData = await response.json();
+            
+            // Check if user is now blocked
+            if (freshUserData.isBlocked) {
+              // Log out the user immediately
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('userData');
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+            
+            setUser(freshUserData);
+            localStorage.setItem('userData', JSON.stringify(freshUserData));
+            
+            // Check if URL has lang parameter - it takes priority
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlLang = urlParams.get('lang');
+            
+            // Get currently selected language from localStorage
+            const currentlySelectedLanguage = localStorage.getItem('i18nextLng');
+            
+            // Set language from user preference if available
+            if (!urlLang && freshUserData.language) {
+              if (!currentlySelectedLanguage || currentlySelectedLanguage === freshUserData.language) {
+                console.log('AuthProvider: Setting language from user data:', freshUserData.language);
+                i18n.changeLanguage(freshUserData.language);
+                localStorage.setItem('i18nextLng', freshUserData.language);
+              } else {
+                console.log('AuthProvider: User has selected language', currentlySelectedLanguage, 'keeping it instead of profile language', freshUserData.language);
+              }
+            } else if (!urlLang) {
+              const detectedLanguage = i18n.language || 'en';
+              console.log('AuthProvider: No user language preference, using detected:', detectedLanguage);
+            } else {
+              console.log('AuthProvider: URL lang parameter detected, skipping user language preference');
+            }
+          } else {
+            // If token is invalid, log the user out
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            setUser(null);
+          }
+          setIsLoading(false);
+        }).catch((e) => {
+          console.error('AuthProvider: Error verifying user status:', e);
+          // On network error, still set user from cached data
+          setUser(parsedUser);
+          setIsLoading(false);
+        });
       } catch (e) {
         // If there's an error parsing, remove the invalid data
         console.error('AuthProvider: Error parsing user data:', e);
         localStorage.removeItem('authToken');
         localStorage.removeItem('userData');
+        setIsLoading(false);
       }
+    } else {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   }, [i18n]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
@@ -92,6 +124,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // Try to get error message from response
         const errorData = await response.json().catch(() => ({}));
+        
+        // If user is blocked (403 status), return the block reason
+        if (response.status === 403 && errorData.blockReason) {
+          return { success: false, message: errorData.blockReason };
+        }
+        
         return { success: false, message: errorData.error || 'Invalid username or password' };
       }
     } catch (error) {

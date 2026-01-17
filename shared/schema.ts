@@ -12,6 +12,8 @@ export const users = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
   accessLevel: text("access_level").default('user'), // 'admin', 'moder', 'user'
+  isBlocked: boolean("is_blocked").default(false), // Whether user is blocked
+  blockReason: text("block_reason"), // Reason for blocking (supports markdown/links)
   language: varchar("language", { length: 10 }).default('en'), // User's preferred language
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

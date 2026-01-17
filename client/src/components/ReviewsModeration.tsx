@@ -2,8 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { User } from 'lucide-react';
+import { User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiCall, reviewsApi } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Review {
   id: string;
@@ -23,23 +30,44 @@ const ReviewsModeration: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingReview, setEditingReview] = useState<{id: string, content: string, rating: number} | null>(null);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = localStorage.getItem('admin_reviews_page');
+    return saved ? parseInt(saved) : 1;
+  });
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('admin_reviews_limit');
+    return saved ? parseInt(saved) : 20;
+  });
   const isInitialMount = useRef(true);
 
+  // Save pagination settings to localStorage
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      fetchPendingReviews();
-    }
-  }, []);
+    localStorage.setItem('admin_reviews_page', currentPage.toString());
+  }, [currentPage]);
+
+  useEffect(() => {
+    localStorage.setItem('admin_reviews_limit', itemsPerPage.toString());
+  }, [itemsPerPage]);
+
+  useEffect(() => {
+    fetchPendingReviews();
+  }, [currentPage, itemsPerPage]);
 
   const fetchPendingReviews = async () => {
     try {
       setLoading(true);
-      const response = await apiCall('/api/admin/reviews/pending');
+      const response = await apiCall(`/api/admin/reviews/pending?page=${currentPage}&limit=${itemsPerPage}`);
       const data = await response.json();
       
+      // Handle both paginated response format and array format
+      const items = data.items || data;
+      const total = data.total || items.length;
+      const totalPages = data.totalPages || Math.ceil(total / itemsPerPage);
+      
       // Fetch book titles for each review
-      const reviewsWithBooks = await Promise.all(data.map(async (review: Review) => {
+      const reviewsWithBooks = await Promise.all(items.map(async (review: Review) => {
         try {
           const bookResponse = await apiCall(`/api/books/${review.bookId}`);
           const bookData = await bookResponse.json();
@@ -57,6 +85,8 @@ const ReviewsModeration: React.FC = () => {
       }));
       
       setReviews(reviewsWithBooks);
+      setTotalReviews(total);
+      setTotalPages(totalPages);
       setError(null);
     } catch (err) {
       console.error('Error fetching pending reviews:', err);
@@ -131,9 +161,26 @@ const ReviewsModeration: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Reviews Moderation</h2>
-        <p className="text-sm text-muted-foreground">
-          {reviews.length} pending review{reviews.length !== 1 ? 's' : ''}
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            {totalReviews} total review{totalReviews !== 1 ? 's' : ''}
+          </p>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+            setItemsPerPage(parseInt(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5 per page</SelectItem>
+              <SelectItem value="10">10 per page</SelectItem>
+              <SelectItem value="20">20 per page</SelectItem>
+              <SelectItem value="50">50 per page</SelectItem>
+              <SelectItem value="100">100 per page</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card>
@@ -142,7 +189,8 @@ const ReviewsModeration: React.FC = () => {
         </CardHeader>
         <CardContent>
           {reviews.length > 0 ? (
-            <div className="space-y-4">
+            <>
+              <div className="space-y-4">
               {reviews.map((review) => (
                 <div key={review.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start">
@@ -251,6 +299,37 @@ const ReviewsModeration: React.FC = () => {
                 </div>
               ))}
             </div>
+            
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalReviews)} of {totalReviews}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="text-sm text-muted-foreground px-2">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
           ) : (
             <p className="text-center text-muted-foreground py-4">
               No pending reviews to moderate.

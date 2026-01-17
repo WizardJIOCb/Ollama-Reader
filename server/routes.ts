@@ -738,6 +738,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid credentials" });
       }
       
+      // Check if user is blocked
+      if (user.isBlocked) {
+        console.log("User is blocked:", username);
+        return res.status(403).json({ 
+          error: "Account blocked",
+          blockReason: user.blockReason || "Your account has been blocked. Please contact support for more information."
+        });
+      }
+      
       // Generate token
       console.log("Generating token for user ID:", user.id);
       const token = generateToken(user.id);
@@ -1681,10 +1690,24 @@ export async function registerRoutes(
   app.get("/api/admin/news", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Get all news for admin endpoint called");
     try {
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = (page - 1) * limit;
+      
       // Get all news items (published and unpublished)
       const allNews = await storage.getAllNews();
+      const total = allNews.length;
+      const paginatedNews = allNews
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // Newest first
+        .slice(offset, offset + limit);
       
-      res.json(allNews);
+      res.json({
+        items: paginatedNews,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
     } catch (error) {
       console.error("Get all news for admin error:", error);
       res.status(500).json({ error: "Failed to get news items" });
@@ -1696,13 +1719,13 @@ export async function registerRoutes(
     console.log("Update user access level endpoint called");
     try {
       const { userId } = req.params;
-      const { accessLevel } = req.body;
+      const { accessLevel, isBlocked, blockReason } = req.body;
       
       if (!accessLevel || !['admin', 'moder', 'user'].includes(accessLevel)) {
         return res.status(400).json({ error: "Valid access level is required (admin, moder, or user)" });
       }
       
-      const updatedUser = await storage.updateAccessLevel(userId, accessLevel);
+      const updatedUser = await storage.updateAccessLevel(userId, accessLevel, isBlocked, blockReason);
       
       // Return user data without password
       const { password: _, ...userWithoutPassword } = updatedUser;
@@ -1759,9 +1782,23 @@ export async function registerRoutes(
   app.get("/api/admin/comments/pending", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Get pending comments endpoint called");
     try {
-      const allComments = await storage.getAllComments();
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = (page - 1) * limit;
       
-      res.json(allComments);
+      const allComments = await storage.getAllComments();
+      const total = allComments.length;
+      const paginatedComments = allComments
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // Newest first
+        .slice(offset, offset + limit);
+      
+      res.json({
+        items: paginatedComments,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
     } catch (error) {
       console.error("Get pending comments error:", error);
       res.status(500).json({ error: "Failed to get pending comments" });
@@ -1772,9 +1809,23 @@ export async function registerRoutes(
   app.get("/api/admin/reviews/pending", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Get pending reviews endpoint called");
     try {
-      const allReviews = await storage.getAllReviews();
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = (page - 1) * limit;
       
-      res.json(allReviews);
+      const allReviews = await storage.getAllReviews();
+      const total = allReviews.length;
+      const paginatedReviews = allReviews
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // Newest first
+        .slice(offset, offset + limit);
+      
+      res.json({
+        items: paginatedReviews,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
     } catch (error) {
       console.error("Get pending reviews error:", error);
       res.status(500).json({ error: "Failed to get pending reviews" });
@@ -1785,11 +1836,19 @@ export async function registerRoutes(
   app.get("/api/admin/recent-activity", authenticateToken, requireAdminOrModerator, async (req, res) => {
     console.log("Get recent activity endpoint called");
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const activity = await storage.getRecentActivity(limit);
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const offset = (page - 1) * limit;
+      
+      // Get all activity first, then paginate
+      const allActivity = await storage.getRecentActivity(10000); // Get a large number to ensure we get all
+      const total = allActivity.length;
+      
+      // Paginate the activity
+      const paginatedActivity = allActivity.slice(offset, offset + limit);
       
       // Get book titles for each activity item
-      const activityWithBooks = await Promise.all(activity.map(async (item) => {
+      const activityWithBooks = await Promise.all(paginatedActivity.map(async (item) => {
         const book = await storage.getBook(item.bookId);
         return {
           ...item,
@@ -1798,7 +1857,13 @@ export async function registerRoutes(
         };
       }));
       
-      res.json(activityWithBooks);
+      res.json({
+        items: activityWithBooks,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
     } catch (error) {
       console.error("Get recent activity error:", error);
       res.status(500).json({ error: "Failed to get recent activity" });
@@ -3677,12 +3742,14 @@ export async function registerRoutes(
             u.full_name as "fullName",
             u.email,
             u.access_level as "accessLevel",
+            COALESCE(u.is_blocked, false) as "isBlocked",
+            u.block_reason as "blockReason",
             u.created_at as "createdAt",
             u.updated_at as "lastLogin",
-            COUNT(DISTINCT s.id) as "shelvesCount",
-            COUNT(DISTINCT sb.book_id) as "booksOnShelvesCount",
-            COUNT(DISTINCT c.id) as "commentsCount",
-            COUNT(DISTINCT r.id) as "reviewsCount"
+            COUNT(DISTINCT s.id)::text as "shelvesCount",
+            COUNT(DISTINCT sb.book_id)::text as "booksOnShelvesCount",
+            COUNT(DISTINCT c.id)::text as "commentsCount",
+            COUNT(DISTINCT r.id)::text as "reviewsCount"
           FROM users u
           LEFT JOIN shelves s ON u.id = s.user_id
           LEFT JOIN shelf_books sb ON s.id = sb.shelf_id
@@ -3692,7 +3759,7 @@ export async function registerRoutes(
             LOWER(u.username) LIKE LOWER(${searchPattern}) OR
             LOWER(u.full_name) LIKE LOWER(${searchPattern}) OR
             LOWER(u.email) LIKE LOWER(${searchPattern})
-          GROUP BY u.id
+          GROUP BY u.id, u.username, u.full_name, u.email, u.access_level, u.is_blocked, u.block_reason, u.created_at, u.updated_at
           ORDER BY u.created_at DESC
           LIMIT ${limit} OFFSET ${offset}
         `);
@@ -3814,28 +3881,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Generate impersonation token error:", error);
       res.status(500).json({ error: "Failed to generate impersonation token" });
-    }
-  });
-  
-  // Admin: Change user access level
-  app.put("/api/admin/users/:userId/access-level", authenticateToken, requireAdminOrModerator, async (req, res) => {
-    console.log("Change user access level endpoint called");
-    try {
-      const { userId } = req.params;
-      const { accessLevel } = req.body;
-      
-      // Validate access level
-      if (!['user', 'moder', 'admin'].includes(accessLevel)) {
-        return res.status(400).json({ error: "Invalid access level" });
-      }
-      
-      const updatedUser = await storage.updateAccessLevel(userId, accessLevel);
-      
-      const { password: _, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
-    } catch (error) {
-      console.error("Change user access level error:", error);
-      res.status(500).json({ error: "Failed to change user access level" });
     }
   });
   

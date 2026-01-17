@@ -202,7 +202,7 @@ export interface IStorage {
   createNewsReaction(reactionData: any): Promise<any>;
   getNewsReactions(newsId: string): Promise<any[]>;
   getReactionsForNews(newsId: string): Promise<any[]>;
-  updateAccessLevel(userId: string, accessLevel: string): Promise<User>;
+  updateAccessLevel(userId: string, accessLevel: string, isBlocked?: boolean, blockReason?: string | null): Promise<User>;
   getUsersWithStats(limit: number, offset: number): Promise<any[]>;
   getRecentActivity(limit: number): Promise<any[]>;
   getNewsCountSince(date: Date): Promise<number>;
@@ -3166,10 +3166,21 @@ export class DBStorage implements IStorage {
     }
   }
   
-  async updateAccessLevel(userId: string, accessLevel: string): Promise<User> {
+  async updateAccessLevel(userId: string, accessLevel: string, isBlocked?: boolean, blockReason?: string | null): Promise<User> {
     try {
+      const updateData: any = { 
+        accessLevel, 
+        updatedAt: new Date() 
+      };
+      
+      // Handle blocked status
+      if (isBlocked !== undefined) {
+        updateData.isBlocked = isBlocked;
+        updateData.blockReason = isBlocked ? blockReason : null;
+      }
+      
       const result = await db.update(users)
-        .set({ accessLevel, updatedAt: new Date() })
+        .set(updateData)
         .where(eq(users.id, userId))
         .returning();
       
@@ -3194,6 +3205,8 @@ export class DBStorage implements IStorage {
         email: users.email,
         avatarUrl: users.avatarUrl,
         accessLevel: users.accessLevel,
+        isBlocked: users.isBlocked,
+        blockReason: users.blockReason,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })

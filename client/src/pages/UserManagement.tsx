@@ -41,8 +41,15 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from '../components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { useToast } from '../hooks/use-toast';
-import { Edit, User } from 'lucide-react';
+import { Edit, User, Ban } from 'lucide-react';
 import { formatAbsoluteDateTime } from '../lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -54,6 +61,8 @@ interface User {
   email: string | null;
   avatarUrl?: string | null;
   accessLevel: string;
+  isBlocked?: boolean;
+  blockReason?: string | null;
   createdAt: string;
   lastLogin: string | null;
   shelvesCount: number;
@@ -78,7 +87,10 @@ const UserManagement: React.FC = () => {
   const dateLocale = i18n.language === 'ru' ? ru : enUS;
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 10,
+    limit: (() => {
+      const saved = localStorage.getItem('admin_users_limit');
+      return saved ? parseInt(saved) : 10;
+    })(),
     total: 0,
     pages: 1
   });
@@ -89,7 +101,6 @@ const UserManagement: React.FC = () => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [openChangePassword, setOpenChangePassword] = useState(false);
-  const [openImpersonate, setOpenImpersonate] = useState(false);
   const [openChangeAccessLevel, setOpenChangeAccessLevel] = useState(false);
   const [openEditUser, setOpenEditUser] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -98,9 +109,13 @@ const UserManagement: React.FC = () => {
     email: '',
     bio: ''
   });
+
+  // Save pagination limit to localStorage
+  useEffect(() => {
+    localStorage.setItem('admin_users_limit', pagination.limit.toString());
+  }, [pagination.limit]);
   const [newAccessLevel, setNewAccessLevel] = useState('');
-  const [impersonationToken, setImpersonationToken] = useState('');
-  const [impersonationUser, setImpersonationUser] = useState<User | null>(null);
+  const [blockReason, setBlockReason] = useState('');
   const { toast } = useToast();
 
   // Debounce search input
@@ -240,11 +255,9 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleImpersonate = async () => {
-    if (!selectedUser) return;
-
+  const handleImpersonate = async (user: User) => {
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/impersonate`, {
+      const response = await fetch(`/api/admin/users/${user.id}/impersonate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -257,9 +270,30 @@ const UserManagement: React.FC = () => {
       }
 
       const data = await response.json();
-      setImpersonationToken(data.token);
-      setImpersonationUser(data.user);
-      setOpenImpersonate(true);
+      
+      // Immediately open the impersonation window
+      const impersonateWindow = window.open('about:blank', '_blank');
+      if (impersonateWindow) {
+        // Set the auth token in the new window's localStorage
+        impersonateWindow.localStorage.setItem('authToken', data.token);
+        
+        // Prepare the user data to store
+        const userData = {
+          id: data.user.id,
+          username: data.user.username,
+          fullName: data.user.fullName || data.user.username,
+          email: data.user.email
+        };
+        impersonateWindow.localStorage.setItem('userData', JSON.stringify(userData));
+        
+        // Navigate to the user's profile page
+        impersonateWindow.location.href = `/profile/${data.user.username}`;
+        
+        toast({
+          title: "Success",
+          description: `Now impersonating ${data.user.username}`
+        });
+      }
     } catch (error) {
       console.error('Error impersonating user:', error);
       toast({
@@ -270,32 +304,23 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const openImpersonateWindow = () => {
-    if (!impersonationToken || !impersonationUser) return;
-
-    // Create a new window and set the token in localStorage
-    const impersonateWindow = window.open('', '_blank');
-    if (impersonateWindow) {
-      impersonateWindow.localStorage.setItem('token', impersonationToken);
-      impersonateWindow.location.href = '/';
-      toast({
-        title: "Success",
-        description: `Now impersonating ${impersonationUser.username}`
-      });
-    }
-  };
-
   const handleChangeAccessLevel = async () => {
     if (!selectedUser) return;
 
     try {
+      const payload: any = {
+        accessLevel: newAccessLevel === 'blocked' ? selectedUser.accessLevel : newAccessLevel,
+        isBlocked: newAccessLevel === 'blocked',
+        blockReason: newAccessLevel === 'blocked' ? blockReason : null
+      };
+
       const response = await fetch(`/api/admin/users/${selectedUser.id}/access-level`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ accessLevel: newAccessLevel })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -304,11 +329,14 @@ const UserManagement: React.FC = () => {
 
       toast({
         title: "Success",
-        description: "Access level changed successfully"
+        description: newAccessLevel === 'blocked' 
+          ? "User has been blocked successfully" 
+          : "Access level changed successfully"
       });
 
       setOpenChangeAccessLevel(false);
       setNewAccessLevel('');
+      setBlockReason('');
       setSelectedUser(null);
       
       // Refresh the user list
@@ -317,7 +345,7 @@ const UserManagement: React.FC = () => {
       console.error('Error changing access level:', error);
       toast({
         title: "Error",
-        description: "Failed to change access level. Please try again.",
+        description: "Failed to update user. Please try again.",
         variant: "destructive"
       });
     }
@@ -360,6 +388,23 @@ const UserManagement: React.FC = () => {
               onChange={setSearch}
               placeholder="Search by login, name, or email..."
             />
+            <Select 
+              value={pagination.limit.toString()} 
+              onValueChange={(value) => {
+                setPagination((prev) => ({ ...prev, limit: parseInt(value), page: 1 }));
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5 per page</SelectItem>
+                <SelectItem value="10">10 per page</SelectItem>
+                <SelectItem value="20">20 per page</SelectItem>
+                <SelectItem value="50">50 per page</SelectItem>
+                <SelectItem value="100">100 per page</SelectItem>
+              </SelectContent>
+            </Select>
             {debouncedSearch && (
               <Button
                 variant="outline"
@@ -407,14 +452,22 @@ const UserManagement: React.FC = () => {
                     </Avatar>
                   </TableCell>
                   <TableCell className="font-medium">
-                    <a
-                      href={`/profile/${user.username}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {user.username}
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`/profile/${user.username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {user.username}
+                      </a>
+                      {user.isBlocked && (
+                        <Badge variant="destructive" className="flex items-center gap-1">
+                          <Ban className="w-3 h-3" />
+                          Blocked
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>{user.fullName || 'N/A'}</TableCell>
                   <TableCell>{user.email || 'N/A'}</TableCell>
@@ -461,10 +514,7 @@ const UserManagement: React.FC = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          handleImpersonate();
-                        }}
+                        onClick={() => handleImpersonate(user)}
                       >
                         Impersonate
                       </Button>
@@ -571,52 +621,52 @@ const UserManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Impersonation Dialog */}
-      <Dialog open={openImpersonate} onOpenChange={setOpenImpersonate}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Impersonate User</DialogTitle>
-            <DialogDescription>
-              You are about to impersonate {impersonationUser?.username}. This will open a new window with their account.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end space-x-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setOpenImpersonate(false);
-                setImpersonationToken('');
-                setImpersonationUser(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={openImpersonateWindow}>
-              Open in New Window
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Change Access Level Dialog */}
       <Dialog open={openChangeAccessLevel} onOpenChange={setOpenChangeAccessLevel}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Change Access Level for {selectedUser?.username}</DialogTitle>
             <DialogDescription>
-              Select a new access level for this user.
+              Select a new access level for this user, or block them.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <select
-              className="w-full p-2 border rounded-md"
-              value={newAccessLevel}
-              onChange={(e) => setNewAccessLevel(e.target.value)}
-            >
-              <option value="user">User</option>
-              <option value="moder">Moderator</option>
-              <option value="admin">Admin</option>
-            </select>
+            <div className="space-y-2">
+              <Label htmlFor="access-level">Access Level</Label>
+              <select
+                id="access-level"
+                className="w-full p-2 border rounded-md"
+                value={newAccessLevel}
+                onChange={(e) => {
+                  setNewAccessLevel(e.target.value);
+                  if (e.target.value !== 'blocked') {
+                    setBlockReason('');
+                  }
+                }}
+              >
+                <option value="">Select access level</option>
+                <option value="user">User</option>
+                <option value="moder">Moderator</option>
+                <option value="admin">Admin</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </div>
+            
+            {newAccessLevel === 'blocked' && (
+              <div className="space-y-2">
+                <Label htmlFor="block-reason">Block Reason</Label>
+                <textarea
+                  id="block-reason"
+                  className="w-full p-2 border rounded-md min-h-[100px]"
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  placeholder="Enter reason for blocking. You can include links like: https://example.com/rules"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This message will be shown to the user when they try to log in. URLs will be automatically converted to clickable links.
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end space-x-2">
             <Button 
@@ -624,13 +674,14 @@ const UserManagement: React.FC = () => {
               onClick={() => {
                 setOpenChangeAccessLevel(false);
                 setNewAccessLevel('');
+                setBlockReason('');
                 setSelectedUser(null);
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleChangeAccessLevel}>
-              Update Access Level
+            <Button onClick={handleChangeAccessLevel} disabled={!newAccessLevel}>
+              {newAccessLevel === 'blocked' ? 'Block User' : 'Update Access Level'}
             </Button>
           </div>
         </DialogContent>

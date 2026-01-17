@@ -53,10 +53,13 @@ const NewsReactionsManagement: React.FC = () => {
       const response = await apiCall('/api/admin/news');
       const data = await response.json();
       
-      console.log('[NewsReactionsManagement] Fetched news items:', data);
-      console.log('[NewsReactionsManagement] First item structure:', data[0]);
+      // Handle both paginated response format and array format
+      const items = data.items || data;
       
-      setNewsItems(data);
+      console.log('[NewsReactionsManagement] Fetched news items:', items);
+      console.log('[NewsReactionsManagement] First item structure:', items[0]);
+      
+      setNewsItems(Array.isArray(items) ? items : []);
       setError(null);
     } catch (err) {
       console.error('Error fetching news items:', err);

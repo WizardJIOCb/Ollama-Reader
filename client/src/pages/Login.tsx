@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Link } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
+import { linkifyText } from '@/lib/linkify';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -48,7 +49,7 @@ export default function Login() {
           <CardContent className="w-full p-0">
             {error && (
               <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
+                {linkifyText(error)}
               </div>
             )}
             

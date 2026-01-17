@@ -10,10 +10,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import NewsManagement from '@/components/NewsManagement';
 import CommentsModeration from '@/components/CommentsModeration';
 import ReviewsModeration from '@/components/ReviewsModeration';
-import NewsReactionsManagement from '@/components/NewsReactionsManagement';
 import UserManagement from '@/pages/UserManagement';
 import BooksManagement from '@/components/BooksManagement';
 import {
@@ -26,7 +32,8 @@ import {
   LogOut,
   User,
   Menu,
-  Heart
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -74,6 +81,25 @@ const AdminDashboard: React.FC = () => {
   const [editingActivity, setEditingActivity] = useState<EditingActivity | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingActivity, setLoadingActivity] = useState(true);
+  const [activityPage, setActivityPage] = useState(() => {
+    const saved = localStorage.getItem('admin_activity_page');
+    return saved ? parseInt(saved) : 1;
+  });
+  const [activityTotalPages, setActivityTotalPages] = useState(1);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityItemsPerPage, setActivityItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('admin_activity_limit');
+    return saved ? parseInt(saved) : 20;
+  });
+
+  // Save pagination settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('admin_activity_page', activityPage.toString());
+  }, [activityPage]);
+
+  useEffect(() => {
+    localStorage.setItem('admin_activity_limit', activityItemsPerPage.toString());
+  }, [activityItemsPerPage]);
 
   const handleEditActivity = (activity: ActivityItem) => {
     setEditingActivity({
@@ -267,22 +293,27 @@ const AdminDashboard: React.FC = () => {
           }
           
           const [newsData, commentsData, reviewsData] = await Promise.all([
-            newsResponse.json() as Promise<NewsItem[]>,
-            commentsResponse.json() as Promise<CommentItem[]>,
-            reviewsResponse.json() as Promise<ReviewItem[]>
+            newsResponse.json(),
+            commentsResponse.json(),
+            reviewsResponse.json()
           ]);
           
+          // Handle paginated responses
+          const newsItems = newsData.items || newsData;
+          const commentsItems = commentsData.items || commentsData;
+          const reviewsItems = reviewsData.items || reviewsData;
+          
           setDashboardStats({
-            totalNews: Array.isArray(newsData) ? newsData.length : 0,
-            totalComments: Array.isArray(commentsData) ? commentsData.length : 0,
-            totalReviews: Array.isArray(reviewsData) ? reviewsData.length : 0,
+            totalNews: newsData.total || (Array.isArray(newsItems) ? newsItems.length : 0),
+            totalComments: commentsData.total || (Array.isArray(commentsItems) ? commentsItems.length : 0),
+            totalReviews: reviewsData.total || (Array.isArray(reviewsItems) ? reviewsItems.length : 0),
             newsChange: statsData.newsChange || 0,
             commentsChange: statsData.commentsChange || 0,
             reviewsChange: statsData.reviewsChange || 0,
           });
           
           // Fetch recent activity (comments and reviews)
-          const activityResponse = await fetch('/api/admin/recent-activity', {
+          const activityResponse = await fetch(`/api/admin/recent-activity?page=${activityPage}&limit=${activityItemsPerPage}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
@@ -290,7 +321,13 @@ const AdminDashboard: React.FC = () => {
           
           if (activityResponse.ok) {
             const activityData = await activityResponse.json();
-            setRecentActivity(activityData);
+            const items = activityData.items || activityData;
+            const total = activityData.total || (Array.isArray(activityData) ? activityData.length : 0);
+            const totalPages = activityData.totalPages || Math.ceil(total / activityItemsPerPage);
+            
+            setRecentActivity(items);
+            setActivityTotal(total);
+            setActivityTotalPages(totalPages);
           } else {
             // Fallback: combine comments and reviews data
             const combinedActivity: ActivityItem[] = [
@@ -332,7 +369,7 @@ const AdminDashboard: React.FC = () => {
     };
     
     fetchDashboardData();
-  }, [activeTab]);
+  }, [activeTab, activityPage, activityItemsPerPage]);
 
   // Check if access has been verified
   const isAdmin = user?.accessLevel === 'admin';
@@ -372,7 +409,6 @@ const AdminDashboard: React.FC = () => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'news', label: 'News Management', icon: Newspaper },
-    { id: 'reactions', label: 'News Reactions', icon: Heart },
     { id: 'comments', label: 'Comments', icon: MessageSquare },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'books', label: 'Books', icon: BookOpen },
@@ -519,7 +555,8 @@ const AdminDashboard: React.FC = () => {
                     {loadingActivity ? (
                       <p className="text-muted-foreground">{t('common:loading')}</p>
                     ) : recentActivity.length > 0 ? (
-                      <div className="space-y-4">
+                      <>
+                        <div className="space-y-4">
                         {recentActivity.map((activity) => (
                           <div key={activity.id} className="border-b pb-3 last:border-0 last:pb-0">
                             <div className="flex justify-between items-start">
@@ -639,11 +676,59 @@ const AdminDashboard: React.FC = () => {
                                     </Button>
                                   </div>
                                 </div>
-                              </div>
-                            )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Pagination Controls */}
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm text-muted-foreground">
+                            Showing {((activityPage - 1) * activityItemsPerPage) + 1} to {Math.min(activityPage * activityItemsPerPage, activityTotal)} of {activityTotal}
                           </div>
-                        ))}
+                          <Select value={activityItemsPerPage.toString()} onValueChange={(value) => {
+                            setActivityItemsPerPage(parseInt(value));
+                            setActivityPage(1);
+                          }}>
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5 per page</SelectItem>
+                              <SelectItem value="10">10 per page</SelectItem>
+                              <SelectItem value="20">20 per page</SelectItem>
+                              <SelectItem value="50">50 per page</SelectItem>
+                              <SelectItem value="100">100 per page</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setActivityPage(prev => Math.max(1, prev - 1))}
+                            disabled={activityPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+                          <div className="text-sm text-muted-foreground px-2">
+                            Page {activityPage} of {activityTotalPages}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setActivityPage(prev => Math.min(activityTotalPages, prev + 1))}
+                            disabled={activityPage === activityTotalPages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
+                    </>
                     ) : (
                       <p className="text-muted-foreground">No recent activity to display.</p>
                     )}
@@ -658,10 +743,6 @@ const AdminDashboard: React.FC = () => {
 
             {activeTab === 'comments' && (
               <CommentsModeration />
-            )}
-
-            {activeTab === 'reactions' && (
-              <NewsReactionsManagement />
             )}
 
             {activeTab === 'reviews' && (

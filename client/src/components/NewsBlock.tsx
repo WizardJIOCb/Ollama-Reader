@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { formatAbsoluteDate } from '@/lib/dateUtils';
 import { ru, enUS } from 'date-fns/locale';
 import { Link } from 'wouter';
+import { linkifyText } from '@/lib/linkify';
 
 interface NewsItem {
   id: string;
@@ -159,9 +160,11 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground whitespace-pre-line mb-3">
-                    {i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content)}
-                  </p>
+                  <div className="text-muted-foreground whitespace-pre-line mb-3">
+                    {linkifyText(
+                      i18n.language === 'ru' ? newsItem.content : (newsItem.contentEn || newsItem.content)
+                    )}
+                  </div>
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       👁️ {newsItem.viewCount} {t('common:views')}

@@ -808,16 +808,12 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Fetch profile rating and add to response
-      let profileRating = null;
+      // Fetch profile rating from user record (already calculated with Bayesian algorithm)
+      let profileRating = user.profileRating ? Number(user.profileRating) : null;
       let ratingCount = 0;
       try {
         const ratings = await storage.getProfileRatings(user.id);
-        if (ratings.length > 0) {
-          const avgRating = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
-          profileRating = Math.round(avgRating * 10) / 10;
-          ratingCount = ratings.length;
-        }
+        ratingCount = ratings.length;
       } catch (error) {
         console.error("Error fetching profile ratings:", error);
       }

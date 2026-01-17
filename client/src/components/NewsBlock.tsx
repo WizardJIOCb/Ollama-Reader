@@ -128,6 +128,7 @@ const NewsBlock: React.FC<NewsBlockProps> = ({ limit, showViewAllButton = false 
                     <a 
                       href={`/news/${newsItem.slug || newsItem.id}`}
                       className="text-primary hover:underline"
+                      style={{ lineHeight: '21px' }}
                     >
                       {i18n.language === 'ru' ? newsItem.title : (newsItem.titleEn || newsItem.title)}
                     </a>

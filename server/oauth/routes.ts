@@ -98,11 +98,13 @@ router.get('/auth/callback/google', async (req: Request, res: Response) => {
 
     try {
       const email = authData.profile.emails?.[0]?.value;
+      const avatarUrl = authData.profile.photos?.[0]?.value;
       const { user, isNewUser } = await oauthService.handleOAuthCallback({
         provider: 'google',
         providerUserId: authData.profile.id,
         email,
         displayName: authData.profile.displayName,
+        avatarUrl,
         accessToken: authData.accessToken,
         refreshToken: authData.refreshToken,
       });
@@ -271,6 +273,7 @@ router.get('/auth/callback/vk', async (req: Request, res: Response) => {
       providerUserId: userId.toString(),
       email: userData.email || tokenData.email,
       displayName: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'VK User',
+      avatarUrl: userData.avatar,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       tokenExpiresAt,

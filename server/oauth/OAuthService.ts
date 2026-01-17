@@ -2,12 +2,20 @@ import { storage } from '../storage';
 import { encryptToken, safeEncryptToken } from './tokenEncryption';
 import type { OAuthProvider } from '../config/oauth';
 import bcrypt from 'bcrypt';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { promisify } from 'util';
+
+const writeFile = promisify(fs.writeFile);
+const mkdir = promisify(fs.mkdir);
 
 export interface OAuthUserData {
   provider: OAuthProvider;
   providerUserId: string;
   email?: string;
   displayName?: string;
+  avatarUrl?: string;
   accessToken: string;
   refreshToken?: string;
   tokenExpiresAt?: Date;
@@ -15,10 +23,51 @@ export interface OAuthUserData {
 
 export class OAuthService {
   /**
+   * Downloads avatar from URL and saves it to uploads directory
+   */
+  private async downloadAndSaveAvatar(avatarUrl: string, userId: string): Promise<string | null> {
+    try {
+      console.log('[OAuth] Downloading avatar from:', avatarUrl);
+      
+      // Download the image
+      const response = await axios.get(avatarUrl, {
+        responseType: 'arraybuffer',
+        timeout: 10000, // 10 second timeout
+      });
+      
+      // Determine file extension from content type
+      const contentType = response.headers['content-type'];
+      let ext = '.jpg'; // default
+      if (contentType?.includes('png')) ext = '.png';
+      else if (contentType?.includes('gif')) ext = '.gif';
+      else if (contentType?.includes('webp')) ext = '.webp';
+      
+      // Create unique filename
+      const filename = `avatar_${userId}_${Date.now()}${ext}`;
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'avatars');
+      const filePath = path.join(uploadsDir, filename);
+      
+      // Ensure uploads directory exists
+      await mkdir(uploadsDir, { recursive: true });
+      
+      // Save file
+      await writeFile(filePath, response.data);
+      
+      // Return URL path
+      const avatarPath = `/uploads/avatars/${filename}`;
+      console.log('[OAuth] ✅ Avatar saved to:', avatarPath);
+      return avatarPath;
+    } catch (error) {
+      console.error('[OAuth] Failed to download avatar:', error);
+      return null;
+    }
+  }
+
+  /**
    * Handles OAuth callback and creates/links user account
    */
   async handleOAuthCallback(userData: OAuthUserData) {
-    const { provider, providerUserId, email, displayName, accessToken, refreshToken, tokenExpiresAt } = userData;
+    const { provider, providerUserId, email, displayName, avatarUrl, accessToken, refreshToken, tokenExpiresAt } = userData;
 
     // Check if OAuth account already exists
     const existingOAuthAccount = await storage.getOAuthAccount(provider, providerUserId);
@@ -60,11 +109,21 @@ export class OAuthService {
         counter++;
       }
 
+      // Download and save avatar if provided
+      let savedAvatarUrl: string | undefined = undefined;
+      if (avatarUrl) {
+        const downloadedAvatar = await this.downloadAndSaveAvatar(avatarUrl, providerUserId);
+        if (downloadedAvatar) {
+          savedAvatarUrl = downloadedAvatar;
+        }
+      }
+
       user = await storage.createUser({
         username: uniqueUsername,
         password: randomPassword,
         email: email || undefined,
         fullName: displayName || undefined,
+        avatarUrl: savedAvatarUrl,
       });
       
       isNewUser = true;

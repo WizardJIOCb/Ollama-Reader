@@ -47,12 +47,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const urlParams = new URLSearchParams(window.location.search);
         const urlLang = urlParams.get('lang');
         
+        // Get currently selected language from localStorage (user might have changed it before login/registration)
+        const currentlySelectedLanguage = localStorage.getItem('i18nextLng');
+        
         // Set language from user preference if available, but only if no URL param
+        // and only if user hasn't explicitly selected a different language
         if (!urlLang && parsedUser.language) {
-          console.log('AuthProvider: Setting language from user data:', parsedUser.language);
-          i18n.changeLanguage(parsedUser.language);
-          // Ensure i18nextLng is in sync with user preference
-          localStorage.setItem('i18nextLng', parsedUser.language);
+          // Only apply user's saved language if there's no active language selection
+          if (!currentlySelectedLanguage || currentlySelectedLanguage === parsedUser.language) {
+            console.log('AuthProvider: Setting language from user data:', parsedUser.language);
+            i18n.changeLanguage(parsedUser.language);
+            localStorage.setItem('i18nextLng', parsedUser.language);
+          } else {
+            console.log('AuthProvider: User has selected language', currentlySelectedLanguage, 'keeping it instead of profile language', parsedUser.language);
+          }
         } else if (!urlLang) {
           // If user has no language preference and no URL param, use i18n's detected language
           const detectedLanguage = i18n.language || 'en';
@@ -94,13 +102,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (username: string, password: string, email?: string, fullName?: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await authApi.register(username, password, email, fullName);
+      // Get current language from i18n
+      const currentLanguage = i18n.language;
+      
+      const response = await authApi.register(username, password, email, fullName, currentLanguage);
 
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userData', JSON.stringify(data.user));
+        
+        // Ensure language stays as selected during registration
+        if (data.user.language) {
+          await i18n.changeLanguage(data.user.language);
+          localStorage.setItem('i18nextLng', data.user.language);
+        }
+        
         return { success: true };
       } else {
         // Try to get error message from response

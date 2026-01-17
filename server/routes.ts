@@ -608,7 +608,7 @@ export async function registerRoutes(
   app.post("/api/auth/register", async (req, res) => {
     console.log("Registration endpoint called");
     try {
-      const { username, password, email, fullName } = req.body;
+      const { username, password, email, fullName, language } = req.body;
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password are required" });
       }
@@ -622,12 +622,13 @@ export async function registerRoutes(
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
       
-      // Create user
+      // Create user with language preference
       const user = await storage.createUser({ 
         username, 
         password: hashedPassword,
         email,
-        fullName
+        fullName,
+        language: language || 'en' // Default to 'en' if not provided
       });
       
       // Generate token

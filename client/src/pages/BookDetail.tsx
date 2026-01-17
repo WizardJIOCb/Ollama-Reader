@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { 
   BookOpen, 
   MessageSquare, 
@@ -144,6 +145,14 @@ export default function BookDetail() {
   const [newReview, setNewReview] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   
+  // State for reading progress
+  const [readingProgress, setReadingProgress] = useState<{
+    currentPage: number;
+    totalPages: number;
+    percentage: number;
+    lastReadAt?: string;
+  } | null>(null);
+  
   // Global splash screen for seamless transition
   const { showSplash } = useBookSplash();
   const [, setLocation] = useLocation();
@@ -253,6 +262,27 @@ export default function BookDetail() {
             setBook(bookData);
             setLocalReactions(bookData.reactions || []); // Set reactions from book data
             
+            // Fetch reading progress if user is authenticated
+            if (token) {
+              try {
+                const progressResponse = await fetch(`/api/books/${bookId}/reading-progress`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+                
+                if (progressResponse.ok) {
+                  const progressData = await progressResponse.json();
+                  // Only set progress if there's actual reading progress (percentage > 0)
+                  if (progressData.percentage > 0) {
+                    setReadingProgress(progressData);
+                  }
+                }
+              } catch (error) {
+                console.error('Error fetching reading progress:', error);
+              }
+            }
+            
             // Fetch comments and reviews in a single call
             await fetchCommentsAndReviews();
           } catch (err) {
@@ -289,6 +319,27 @@ export default function BookDetail() {
           const bookData = await bookResponse.json();
           setBook(bookData);
           setLocalReactions(bookData.reactions || []); // Set reactions from book data
+          
+          // Fetch reading progress if user is authenticated
+          if (token) {
+            try {
+              const progressResponse = await fetch(`/api/books/${bookId}/reading-progress`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                // Only set progress if there's actual reading progress (percentage > 0)
+                if (progressData.percentage > 0) {
+                  setReadingProgress(progressData);
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching reading progress:', error);
+            }
+          }
           
           // Fetch comments and reviews in a single call
           await fetchCommentsAndReviews();
@@ -852,6 +903,23 @@ export default function BookDetail() {
                   <Play className="w-4 h-4" />
                   {t('books:readNow')}
                 </Button>
+                
+                {/* Reading Progress Display */}
+                {readingProgress && readingProgress.percentage > 0 && (
+                  <div className="mt-1 mb-2">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>{t('books:progress')}</span>
+                      <span>{Math.round(readingProgress.percentage)}%</span>
+                    </div>
+                    <Progress value={readingProgress.percentage} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>{readingProgress.currentPage} {t('books:of')} {readingProgress.totalPages} {t('books:pages')}</span>
+                      {readingProgress.lastReadAt && (
+                        <span>{t('books:lastRead')}: {new Date(readingProgress.lastReadAt).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 <AddToShelfDialog 
                   bookId={book.id}

@@ -1298,7 +1298,7 @@ export default function Reader() {
           <>
             {/* Left navigation zone - from screen edge to book container */}
             <div
-              className="absolute left-0 top-0 bottom-0 z-5 cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200"
+              className="absolute left-0 top-0 bottom-0 z-5 cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 select-none"
               style={{
                 width: 'calc((100vw - 72rem) / 2)',
                 minWidth: '40px',
@@ -1321,7 +1321,7 @@ export default function Reader() {
             {/* Right navigation zone - from book container to screen edge, hidden when panel is open */}
             {!activePanel && (
               <div
-                className="absolute right-0 top-0 bottom-0 z-5 cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200"
+                className="absolute right-0 top-0 bottom-0 z-5 cursor-pointer flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 select-none"
                 style={{
                   width: 'calc((100vw - 72rem) / 2)',
                   minWidth: '40px',

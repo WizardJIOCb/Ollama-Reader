@@ -231,7 +231,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           {(book.rating !== undefined && book.rating !== null) ? (
             <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm font-bold">
               <Star className="w-3 h-3 fill-current" />
-              {book.rating.toFixed(1)}
+              {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
             </div>
           ) : (
             <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-1 rounded-full flex items-center gap-1 text-sm">
@@ -294,7 +294,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           {(book.rating !== undefined && book.rating !== null) && (
             <div className="flex items-center text-xs font-bold text-yellow-600">
               <Star className="w-3 h-3 mr-1 fill-current" />
-              <span>{t('books:rating')}: {book.rating.toFixed(1)}</span>
+              <span>{t('books:rating')}: {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}</span>
             </div>
           )}
           

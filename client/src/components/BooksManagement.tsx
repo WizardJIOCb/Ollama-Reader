@@ -306,7 +306,7 @@ const BooksManagement = () => {
                         <TableCell>{book.genre || 'N/A'}</TableCell>
                         <TableCell>{book.publishedYear || 'N/A'}</TableCell>
                         <TableCell>
-                          {book.rating ? book.rating.toFixed(1) : 'N/A'}
+                          {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <a

@@ -876,7 +876,7 @@ export default function Profile() {
                 {profileRating !== null && typeof profileRating === 'number' && (
                   <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
                     <Badge variant={profileRating >= 8 ? 'default' : profileRating >= 5 ? 'secondary' : 'destructive'}>
-                      ⭐ {profileRating.toFixed(1)}/10
+                      ⭐ {profileRating % 1 === 0 ? profileRating : profileRating.toFixed(1)}/10
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       {t('profile:ratings.from')} {ratingCount} {ratingCount === 1 ? t('profile:ratings.rating') : t('profile:ratings.ratingsPlural')}

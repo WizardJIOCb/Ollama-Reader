@@ -430,7 +430,7 @@ export function BookEditDialog({ book, open, onOpenChange, onBookUpdated }: Book
               </div>
               <div>
                 <span className="text-muted-foreground">Rating:</span>{' '}
-                {book.rating ? book.rating.toFixed(1) : 'N/A'}
+                {book.rating ? (book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)) : 'N/A'}
               </div>
             </div>
           </div>

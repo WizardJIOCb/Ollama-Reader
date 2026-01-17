@@ -146,7 +146,7 @@ export function BookSplashProvider({ children }: { children: ReactNode }) {
                   className="ml-2 text-sm opacity-70"
                   style={{ color: themeColors.text }}
                 >
-                  {book.rating.toFixed(1)}
+                  {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
                 </span>
               </div>
             )}

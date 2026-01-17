@@ -20,7 +20,7 @@ interface ReactionBarProps {
   bookId?: string;
 }
 
-const AVAILABLE_EMOJIS = ['👍', '👎', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂'];
+const AVAILABLE_EMOJIS = ['👍', '👎', '❤️', '🔥', '👏', '🤯', '🤔', '😢', '😂', '😊', '😐'];
 
 export function ReactionBar({ reactions = [], onReact, commentId, reviewId, newsId, bookId }: ReactionBarProps) {
   const handleReaction = async (emoji: string) => {
